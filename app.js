@@ -1,6 +1,12 @@
 'use strict';
 
-let state = loadData();
+let state = dataApi.normalizeData(dataApi.DEFAULT_DATA);
+let currentSource = 'loading';
+let lastUpdatedAt = null;
+let saveTimer = null;
+let pollTimer = null;
+let isSaving = false;
+let suspendRemoteRefreshUntil = 0;
 
 const fmt = value => 'Rs ' + (Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -32,6 +38,37 @@ function personOptions(selectedId) {
   return getPeople().map(person => (
     `<option value="${person.id}" ${person.id === selectedId ? 'selected' : ''}>${esc(person.name)}</option>`
   )).join('');
+}
+
+function setSyncStatus(mode, message) {
+  currentSource = mode || currentSource;
+  const sourceEl = $('sync-source');
+  const noteEl = $('sync-note');
+  if (!sourceEl || !noteEl) return;
+
+  const labelMap = {
+    loading: 'Loading',
+    remote: 'Shared Cloud Mode',
+    local: 'Browser Only Mode',
+    'local-fallback': 'Fallback Local Mode',
+    saving: 'Saving',
+  };
+
+  sourceEl.textContent = labelMap[currentSource] || currentSource;
+  sourceEl.className = 'sync-badge sync-' + (currentSource === 'remote' ? 'remote' : currentSource === 'saving' ? 'saving' : currentSource === 'loading' ? 'loading' : 'local');
+  noteEl.textContent = message || '';
+}
+
+function formatTimestamp(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? '' : date.toLocaleString('en-IN');
+}
+
+function updateSyncMeta() {
+  const metaEl = $('sync-meta');
+  if (!metaEl) return;
+  metaEl.textContent = lastUpdatedAt ? 'Last synced: ' + formatTimestamp(lastUpdatedAt) : 'Changes save automatically';
 }
 
 function ensureShares() {
@@ -76,16 +113,12 @@ function compute() {
 
   state.expenses.forEach(expense => {
     totals.expenses += Number(expense.amount) || 0;
-    if (expense.by in totals.expenseByPerson) {
-      totals.expenseByPerson[expense.by] += Number(expense.amount) || 0;
-    }
+    if (expense.by in totals.expenseByPerson) totals.expenseByPerson[expense.by] += Number(expense.amount) || 0;
   });
 
   state.withdrawals.forEach(withdrawal => {
     totals.withdrawals += Number(withdrawal.amount) || 0;
-    if (withdrawal.by in totals.withdrawalByPerson) {
-      totals.withdrawalByPerson[withdrawal.by] += Number(withdrawal.amount) || 0;
-    }
+    if (withdrawal.by in totals.withdrawalByPerson) totals.withdrawalByPerson[withdrawal.by] += Number(withdrawal.amount) || 0;
   });
 
   const peopleSummary = people.map((person, index) => {
@@ -105,11 +138,6 @@ function compute() {
   });
 
   return { totals, peopleSummary };
-}
-
-function persistAndRender() {
-  saveData(state);
-  render();
 }
 
 function renderMetrics(summary) {
@@ -132,8 +160,7 @@ function renderMetrics(summary) {
 }
 
 function renderPeopleTable(summary) {
-  const tbody = $('people-body');
-  tbody.innerHTML = getPeople().map((person, index) => `
+  $('people-body').innerHTML = getPeople().map((person, index) => `
     <tr>
       <td>
         <div class="person-cell">
@@ -168,16 +195,6 @@ function renderStreams(summary) {
 
   $('stream-body').innerHTML = state.streams.map(stream => {
     const gross = (Number(stream.price) || 0) * (Number(stream.qty) || 0);
-    const sharePctCols = people.map(person => `
-      <td class="num">
-        <input type="number" class="small-input" min="0" max="100" step="0.01"
-          value="${Number(stream.shares[person.id]) || 0}"
-          data-table="streams" data-id="${stream.id}" data-share-person="${person.id}" />
-      </td>
-    `).join('');
-    const shareAmountCols = people.map(person => `
-      <td class="num">${fmt(gross * ((Number(stream.shares[person.id]) || 0) / 100))}</td>
-    `).join('');
     const totalPct = people.reduce((sum, person) => sum + (Number(stream.shares[person.id]) || 0), 0);
     const warnClass = Math.abs(totalPct - 100) > 0.01 ? 'warn-text' : 'ok-text';
 
@@ -187,9 +204,15 @@ function renderStreams(summary) {
         <td class="num"><input type="number" value="${Number(stream.price) || 0}" min="0" step="0.01" data-table="streams" data-id="${stream.id}" data-field="price" /></td>
         <td class="num"><input type="number" class="small-input" value="${Number(stream.qty) || 0}" min="0" step="1" data-table="streams" data-id="${stream.id}" data-field="qty" /></td>
         <td class="num">${fmt(gross)}</td>
-        ${sharePctCols}
+        ${people.map(person => `
+          <td class="num">
+            <input type="number" class="small-input" min="0" max="100" step="0.01"
+              value="${Number(stream.shares[person.id]) || 0}"
+              data-table="streams" data-id="${stream.id}" data-share-person="${person.id}" />
+          </td>
+        `).join('')}
         <td class="num ${warnClass}">${totalPct.toFixed(2)}%</td>
-        ${shareAmountCols}
+        ${people.map(person => `<td class="num">${fmt(gross * ((Number(stream.shares[person.id]) || 0) / 100))}</td>`).join('')}
         <td class="row-actions"><button class="icon-btn" data-action="delete-stream" data-id="${stream.id}">Delete</button></td>
       </tr>
     `;
@@ -244,9 +267,7 @@ function renderExpenses(summary) {
       <td><input class="text-input" type="text" value="${esc(expense.name)}" data-table="expenses" data-id="${expense.id}" data-field="name" placeholder="Expense name" /></td>
       <td class="num"><input type="number" value="${Number(expense.amount) || 0}" min="0" step="0.01" data-table="expenses" data-id="${expense.id}" data-field="amount" /></td>
       <td>
-        <select data-table="expenses" data-id="${expense.id}" data-field="by">
-          ${personOptions(expense.by)}
-        </select>
+        <select data-table="expenses" data-id="${expense.id}" data-field="by">${personOptions(expense.by)}</select>
       </td>
       <td>
         <select data-table="expenses" data-id="${expense.id}" data-field="done">
@@ -274,9 +295,7 @@ function renderWithdrawals(summary) {
       <td><input type="date" value="${esc(withdrawal.date)}" data-table="withdrawals" data-id="${withdrawal.id}" data-field="date" /></td>
       <td class="num"><input type="number" value="${Number(withdrawal.amount) || 0}" min="0" step="0.01" data-table="withdrawals" data-id="${withdrawal.id}" data-field="amount" /></td>
       <td>
-        <select data-table="withdrawals" data-id="${withdrawal.id}" data-field="by">
-          ${personOptions(withdrawal.by)}
-        </select>
+        <select data-table="withdrawals" data-id="${withdrawal.id}" data-field="by">${personOptions(withdrawal.by)}</select>
       </td>
       <td class="row-actions"><button class="icon-btn" data-action="delete-withdrawal" data-id="${withdrawal.id}">Delete</button></td>
     </tr>
@@ -318,69 +337,76 @@ function render() {
   renderExpenses(summary);
   renderWithdrawals(summary);
   renderSettlement(summary);
+  updateSyncMeta();
 }
 
 function parseValue(field, value) {
-  if (field === 'amount' || field === 'price' || field === 'qty' || field === 'list' || field === 'discount') {
-    return Number(value) || 0;
-  }
-  if (field === 'done') {
-    return value === 'true';
-  }
+  if (field === 'amount' || field === 'price' || field === 'qty' || field === 'list' || field === 'discount') return Number(value) || 0;
+  if (field === 'done') return value === 'true';
   return value;
+}
+
+function scheduleSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  setSyncStatus('saving', 'Saving shared changes...');
+  saveTimer = setTimeout(async () => {
+    isSaving = true;
+    suspendRemoteRefreshUntil = Date.now() + 15000;
+    const result = await dataApi.saveData(state);
+    isSaving = false;
+    currentSource = result.source;
+    lastUpdatedAt = result.updatedAt || lastUpdatedAt;
+    setSyncStatus(result.source, result.source === 'remote' ? 'Everyone sees the same live sheet.' : 'Cloud setup missing or unreachable. Using local copy.');
+    updateSyncMeta();
+  }, 350);
 }
 
 function updateRecord(table, id, field, value) {
   const record = state[table].find(item => item.id === id);
   if (!record) return;
   record[field] = parseValue(field, value);
-  persistAndRender();
+  render();
+  scheduleSave();
 }
 
 function updateShare(streamId, personId, value) {
   const stream = state.streams.find(item => item.id === streamId);
   if (!stream) return;
   stream.shares[personId] = Number(value) || 0;
-  persistAndRender();
+  render();
+  scheduleSave();
 }
 
 function deletePerson(personId) {
   if (state.people.length <= 1) return;
   state.people = state.people.filter(person => person.id !== personId);
-
   const fallbackId = state.people[0] ? state.people[0].id : '';
-  state.expenses.forEach(expense => {
-    if (expense.by === personId) expense.by = fallbackId;
-  });
-  state.withdrawals.forEach(withdrawal => {
-    if (withdrawal.by === personId) withdrawal.by = fallbackId;
-  });
-  state.streams.forEach(stream => {
-    delete stream.shares[personId];
-  });
-
-  persistAndRender();
+  state.expenses.forEach(expense => { if (expense.by === personId) expense.by = fallbackId; });
+  state.withdrawals.forEach(withdrawal => { if (withdrawal.by === personId) withdrawal.by = fallbackId; });
+  state.streams.forEach(stream => { delete stream.shares[personId]; });
+  render();
+  scheduleSave();
 }
 
 function addRow(type) {
   const firstPersonId = getPeople()[0] ? getPeople()[0].id : '';
-
   if (type === 'people') state.people.push({ id: 'p_' + Date.now(), name: 'New Person' });
   if (type === 'streams') state.streams.push({ id: 's_' + Date.now(), name: '', price: 0, qty: 0, shares: Object.fromEntries(getPeople().map(person => [person.id, 0])) });
   if (type === 'discounts') state.discounts.push({ id: 'd_' + Date.now(), item: '', list: 0, discount: 0 });
   if (type === 'expenses') state.expenses.push({ id: 'e_' + Date.now(), name: '', amount: 0, by: firstPersonId, done: false, notes: '' });
   if (type === 'withdrawals') state.withdrawals.push({ id: 'w_' + Date.now(), date: new Date().toISOString().slice(0, 10), amount: 0, by: firstPersonId });
-
-  persistAndRender();
+  render();
+  scheduleSave();
 }
 
 function deleteRow(action, id) {
+  if (action === 'delete-person') return deletePerson(id);
   if (action === 'delete-stream') state.streams = state.streams.filter(item => item.id !== id);
   if (action === 'delete-discount') state.discounts = state.discounts.filter(item => item.id !== id);
   if (action === 'delete-expense') state.expenses = state.expenses.filter(item => item.id !== id);
   if (action === 'delete-withdrawal') state.withdrawals = state.withdrawals.filter(item => item.id !== id);
-  if (action === 'delete-person') deletePerson(id);
-  if (action !== 'delete-person') persistAndRender();
+  render();
+  scheduleSave();
 }
 
 function handleFieldEdit(event) {
@@ -389,7 +415,6 @@ function handleFieldEdit(event) {
   const id = target.dataset.id;
   const field = target.dataset.field;
   const sharePerson = target.dataset.sharePerson;
-
   if (table && id && field) updateRecord(table, id, field, target.value);
   if (table === 'streams' && id && sharePerson) updateShare(id, sharePerson, target.value);
 }
@@ -404,12 +429,12 @@ document.addEventListener('focusout', event => {
 document.addEventListener('click', event => {
   const button = event.target.closest('[data-action]');
   if (!button) return;
-
   const action = button.dataset.action;
   const id = button.dataset.id;
 
   if (action === 'export') exportCSV();
   else if (action === 'reset') resetAll();
+  else if (action === 'sync-now') refreshFromRemote(true);
   else if (action.startsWith('add-')) addRow(action.replace('add-', ''));
   else deleteRow(action, id);
 });
@@ -423,7 +448,6 @@ function exportCSV() {
   rows.push(['PEOPLE']);
   rows.push(['Name', 'Revenue Share', 'Expenses', 'Withdrawals']);
   summary.peopleSummary.forEach(person => rows.push([person.name, person.share.toFixed(2), person.expense.toFixed(2), person.withdrawn.toFixed(2)]));
-
   rows.push([]);
   rows.push(['REVENUE STREAMS']);
   rows.push(['Stream', 'Price', 'Qty', 'Gross', ...people.map(person => `${person.name} %`), ...people.map(person => `${person.name} Amount`)]);
@@ -438,17 +462,14 @@ function exportCSV() {
       ...people.map(person => (gross * ((Number(stream.shares[person.id]) || 0) / 100)).toFixed(2)),
     ]);
   });
-
   rows.push([]);
   rows.push(['DISCOUNTS']);
   rows.push(['Item', 'List Price', 'Discount', 'Net']);
   state.discounts.forEach(item => rows.push([item.item, item.list, item.discount, (item.list - item.discount).toFixed(2)]));
-
   rows.push([]);
   rows.push(['EXPENSES']);
   rows.push(['Expense', 'Amount', 'Paid By', 'Status', 'Notes']);
   state.expenses.forEach(expense => rows.push([expense.name, expense.amount, getPersonName(expense.by), expense.done ? 'Done' : 'Pending', expense.notes]));
-
   rows.push([]);
   rows.push(['WITHDRAWALS']);
   rows.push(['Date', 'Amount', 'By']);
@@ -464,13 +485,57 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
-function resetAll() {
-  if (!confirm('Reset all values to defaults? This clears saved browser edits.')) return;
-  state = resetData();
+async function resetAll() {
+  if (!confirm('Reset all values to defaults? This clears the shared sheet too.')) return;
+  setSyncStatus('saving', 'Resetting sheet...');
+  const result = await dataApi.resetData();
+  state = result.data;
+  lastUpdatedAt = result.updatedAt || null;
+  setSyncStatus(result.source, result.source === 'remote' ? 'Shared sheet reset successfully.' : 'Reset locally. Cloud setup missing or unreachable.');
   render();
+}
+
+async function refreshFromRemote(force) {
+  if (!dataApi.hasRemoteConfig()) return;
+  if (!force && (isSaving || Date.now() < suspendRemoteRefreshUntil)) return;
+  try {
+    const result = await dataApi.loadData();
+    if (result.source === 'remote' && result.updatedAt && result.updatedAt !== lastUpdatedAt) {
+      state = result.data;
+      lastUpdatedAt = result.updatedAt;
+      render();
+      setSyncStatus('remote', force ? 'Shared data refreshed.' : 'Received latest shared updates.');
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function startPolling() {
+  if (!dataApi.hasRemoteConfig()) return;
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => refreshFromRemote(false), 12000);
+}
+
+async function init() {
+  setSyncStatus('loading', 'Loading datasheet...');
+  const result = await dataApi.loadData();
+  state = result.data;
+  lastUpdatedAt = result.updatedAt || null;
+  render();
+
+  if (result.source === 'remote') {
+    setSyncStatus('remote', 'Everyone using this site sees the same shared data.');
+  } else if (result.source === 'local-fallback') {
+    setSyncStatus('local-fallback', 'Supabase is not connected yet or is unreachable. Currently saving only in this browser.');
+  } else {
+    setSyncStatus('local', 'Connect Supabase in config.js to make this shared for everyone.');
+  }
+
+  startPolling();
 }
 
 window.exportCSV = exportCSV;
 window.resetAll = resetAll;
 
-render();
+init();

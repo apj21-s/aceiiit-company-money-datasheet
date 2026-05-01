@@ -13,8 +13,15 @@
         <div>
           <p class="eyebrow">Operations Sheet</p>
           <h1 class="title">ACE-IIIT Datasheet</h1>
+          <p class="subtitle">Shared online mode is supported through Supabase so everyone can use the same live sheet.</p>
         </div>
         <div class="header-actions">
+          <div class="sync-panel">
+            <span id="sync-source" class="sync-badge sync-loading">Loading</span>
+            <span id="sync-note" class="sync-note">Checking storage mode...</span>
+            <span id="sync-meta" class="sync-meta">Changes save automatically</span>
+          </div>
+          <button class="btn-outline small" data-action="sync-now">Sync Now</button>
           <button class="btn-outline" data-action="export">Export CSV</button>
           <button class="btn-outline danger" data-action="reset">Reset</button>
         </div>
@@ -162,10 +169,11 @@
     </section>
 
     <footer class="footer">
-      <span>Saved in your browser. Add names once in the master table and reuse them everywhere.</span>
+      <span>For shared online use, add your Supabase details in config.js and deploy to GitHub Pages.</span>
     </footer>
   </div>
 
+  <script src="config.js"></script>
   <script src="data.js"></script>
   <script src="app.js"></script>
 </body>
