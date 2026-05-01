@@ -1,0 +1,191 @@
+/**
+ * data.js - Main data store for the company datasheet.
+ *
+ * Everything is driven by a master `people` table.
+ * Any dropdown that needs a person reads from that list.
+ */
+
+const DEFAULT_DATA = {
+  people: [
+    { id: 'p1', name: 'Priyanshu' },
+    { id: 'p2', name: 'Uman' },
+    { id: 'p3', name: 'Arkaprava' },
+  ],
+
+  streams: [
+    {
+      id: 's1',
+      name: 'Class + Notes',
+      price: 1499,
+      qty: 16,
+      shares: { p1: 50, p2: 35, p3: 15 },
+    },
+    {
+      id: 's2',
+      name: 'Only Notes',
+      price: 499,
+      qty: 3,
+      shares: { p1: 50, p2: 35, p3: 15 },
+    },
+    {
+      id: 's3',
+      name: 'Mock Test',
+      price: 599,
+      qty: 18,
+      shares: { p1: 20, p2: 20, p3: 60 },
+    },
+    {
+      id: 's4',
+      name: 'Combo Pack (C+N)',
+      price: 1356.82,
+      qty: 1,
+      shares: { p1: 50, p2: 35, p3: 15 },
+    },
+    {
+      id: 's5',
+      name: 'Combo Pack (Mock)',
+      price: 542.18,
+      qty: 1,
+      shares: { p1: 20, p2: 20, p3: 60 },
+    },
+  ],
+
+  discounts: [
+    { id: 'd1', item: 'Class + Notes', list: 1499, discount: 142.18 },
+    { id: 'd2', item: 'Mock Test', list: 599, discount: 56.82 },
+    { id: 'd3', item: 'Offer bundle', list: 2098, discount: 199.0 },
+  ],
+
+  expenses: [
+    { id: 'e1', name: 'Biryani party', amount: 673, by: 'p3', done: true, notes: 'Done' },
+    { id: 'e2', name: 'Domain', amount: 116.82, by: 'p3', done: true, notes: 'Done' },
+    { id: 'e3', name: 'Reel Boost 1', amount: 177, by: 'p2', done: true, notes: 'Done' },
+    { id: 'e4', name: 'Reel Boost 2', amount: 0, by: 'p1', done: false, notes: 'Amount not recorded - update when known' },
+  ],
+
+  withdrawals: [
+    { id: 'w1', date: '2026-03-29', amount: 2000, by: 'p1' },
+    { id: 'w2', date: '2026-04-01', amount: 100, by: 'p1' },
+    { id: 'w3', date: '2026-04-04', amount: 2000, by: 'p1' },
+    { id: 'w4', date: '2026-04-30', amount: 4000, by: 'p1' },
+    { id: 'w5', date: '2026-04-30', amount: 1000, by: 'p1' },
+  ],
+};
+
+const STORAGE_KEY = 'company_datasheet_v2';
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function uid(prefix) {
+  return prefix + '_' + Math.random().toString(36).slice(2, 10);
+}
+
+function normalizeData(data) {
+  const base = deepClone(DEFAULT_DATA);
+  const raw = data && typeof data === 'object' ? data : {};
+
+  if (Array.isArray(raw.people) && raw.people.length) {
+    base.people = raw.people.map((person, index) => ({
+      id: person.id || uid('p' + index),
+      name: person.name || 'Person ' + (index + 1),
+    }));
+  }
+
+  const legacyNameToId = {};
+  base.people.forEach(person => {
+    legacyNameToId[person.name] = person.id;
+  });
+
+  if (Array.isArray(raw.streams)) {
+    base.streams = raw.streams.map((stream, index) => {
+      const shares = {};
+
+      if (stream.shares && typeof stream.shares === 'object') {
+        base.people.forEach(person => {
+          shares[person.id] = Number(stream.shares[person.id]) || 0;
+        });
+      } else {
+        const legacyMap = {
+          ps: base.people[0] && base.people[0].id,
+          us: base.people[1] && base.people[1].id,
+          as: base.people[2] && base.people[2].id,
+        };
+        Object.entries(legacyMap).forEach(([key, id]) => {
+          if (id) shares[id] = Number(stream[key]) || 0;
+        });
+      }
+
+      return {
+        id: stream.id || uid('s' + index),
+        name: stream.name || '',
+        price: Number(stream.price) || 0,
+        qty: Number(stream.qty) || 0,
+        shares,
+      };
+    });
+  }
+
+  if (Array.isArray(raw.discounts)) {
+    base.discounts = raw.discounts.map((discount, index) => ({
+      id: discount.id || uid('d' + index),
+      item: discount.item || '',
+      list: Number(discount.list) || 0,
+      discount: Number(discount.discount) || 0,
+    }));
+  }
+
+  if (Array.isArray(raw.expenses)) {
+    base.expenses = raw.expenses.map((expense, index) => ({
+      id: expense.id || uid('e' + index),
+      name: expense.name || '',
+      amount: Number(expense.amount) || 0,
+      by: legacyNameToId[expense.by] || expense.by || (base.people[0] && base.people[0].id) || '',
+      done: Boolean(expense.done),
+      notes: expense.notes || '',
+    }));
+  }
+
+  if (Array.isArray(raw.withdrawals)) {
+    base.withdrawals = raw.withdrawals.map((withdrawal, index) => ({
+      id: withdrawal.id || uid('w' + index),
+      date: withdrawal.date || '',
+      amount: Number(withdrawal.amount) || 0,
+      by: legacyNameToId[withdrawal.by] || withdrawal.by || (base.people[0] && base.people[0].id) || '',
+    }));
+  }
+
+  return base;
+}
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return normalizeData(JSON.parse(saved));
+  } catch (error) {
+    /* ignore localStorage parse failures */
+  }
+
+  try {
+    const legacy = localStorage.getItem('revenue_dashboard_v1');
+    if (legacy) return normalizeData(JSON.parse(legacy));
+  } catch (error) {
+    /* ignore legacy parse failures */
+  }
+
+  return normalizeData(DEFAULT_DATA);
+}
+
+function saveData(data) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeData(data)));
+  } catch (error) {
+    /* ignore localStorage write failures */
+  }
+}
+
+function resetData() {
+  localStorage.removeItem(STORAGE_KEY);
+  return normalizeData(DEFAULT_DATA);
+}

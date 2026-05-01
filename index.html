@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ACE-IIIT Datasheet</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <div class="header-inner">
+        <div>
+          <p class="eyebrow">Operations Sheet</p>
+          <h1 class="title">ACE-IIIT Datasheet</h1>
+        </div>
+        <div class="header-actions">
+          <button class="btn-outline" data-action="export">Export CSV</button>
+          <button class="btn-outline danger" data-action="reset">Reset</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="metric-grid" id="metric-grid"></section>
+
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Master People Table</span>
+          <span class="card-hint">Only these names appear in all dropdowns</span>
+        </div>
+        <button class="btn-outline small" data-action="add-people">Add Person</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th class="num">Revenue Share</th>
+              <th class="num">Expenses</th>
+              <th class="num">Withdrawals</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="people-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Revenue Streams</span>
+          <span class="card-hint">Rows and share columns adjust from the master people table</span>
+        </div>
+        <button class="btn-outline small" data-action="add-streams">Add Revenue Row</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="stream-head"></thead>
+          <tbody id="stream-body"></tbody>
+          <tfoot id="stream-foot"></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Discount Reference</span>
+          <span class="card-hint">Editable reference sheet for pricing and offers</span>
+        </div>
+        <button class="btn-outline small" data-action="add-discounts">Add Discount Row</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="num">List Price (Rs)</th>
+              <th class="num">Discount (Rs)</th>
+              <th class="num">Net (Rs)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="discount-body"></tbody>
+          <tfoot id="discount-foot"></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Investments / Expenses</span>
+          <span class="card-hint">Paid by dropdown always follows the master people list</span>
+        </div>
+        <button class="btn-outline small" data-action="add-expenses">Add Expense Row</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Expense</th>
+              <th class="num">Amount (Rs)</th>
+              <th>Paid By</th>
+              <th>Status</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="expense-body"></tbody>
+          <tfoot id="expense-foot"></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Withdrawals</span>
+          <span class="card-hint">Cash-out records with controlled people selection</span>
+        </div>
+        <button class="btn-outline small" data-action="add-withdrawals">Add Withdrawal Row</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th class="num">Amount (Rs)</th>
+              <th>Withdrawn By</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="wd-body"></tbody>
+          <tfoot id="wd-foot"></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <span class="card-title">Settlement Summary</span>
+        <span class="card-hint">Live view of share, spend, withdrawal, and balance by person</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Person</th>
+              <th class="num">Revenue Share (Rs)</th>
+              <th class="num">Expenses Borne (Rs)</th>
+              <th class="num">Withdrawn (Rs)</th>
+              <th class="num">Net Balance (Rs)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="settle-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Saved in your browser. Add names once in the master table and reuse them everywhere.</span>
+    </footer>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
