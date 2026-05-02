@@ -301,6 +301,254 @@ body {
   }
 }
 
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap table {
+  min-width: 720px;
+}
+
+input,
+select,
+button,
+.btn-outline,
+.icon-btn,
+.year-tab-main,
+.year-tab-delete {
+  max-width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .page {
+    padding: 22px 14px 48px;
+  }
+
+  .header {
+    padding: 22px 20px;
+  }
+
+  .header-inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-copy {
+    max-width: none;
+  }
+
+  .header-menu-wrap {
+    margin-left: 0;
+    align-self: flex-end;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .year-strip-head {
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 820px) {
+  .page {
+    padding: 16px 10px 40px;
+  }
+
+  .header {
+    padding: 18px 14px;
+    border-radius: 20px;
+  }
+
+  .title {
+    font-size: clamp(2rem, 9vw, 2.8rem);
+  }
+
+  .subtitle {
+    font-size: 0.95rem;
+  }
+
+  .header-menu-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .header-menu {
+    position: fixed;
+    top: 16px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-height: calc(100vh - 32px);
+    overflow: auto;
+    z-index: 30;
+  }
+
+  .menu-actions {
+    flex-direction: column;
+  }
+
+  .menu-actions > * {
+    width: 100%;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric,
+  .card,
+  .year-strip {
+    border-radius: 18px;
+  }
+
+  .year-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .year-tab {
+    min-width: 0;
+  }
+
+  .year-create-form {
+    flex-direction: column;
+  }
+
+  .year-input,
+  .year-create-form .btn-outline {
+    width: 100%;
+    max-width: none;
+  }
+
+  .card-header {
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .card-header > *:last-child {
+    width: 100%;
+  }
+
+  .card-header .btn-outline.small {
+    width: 100%;
+  }
+
+  .history-modal {
+    padding: 10px;
+  }
+
+  .history-modal-card {
+    max-height: calc(100vh - 20px);
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 560px) {
+  .page {
+    padding-inline: 8px;
+  }
+
+  .header {
+    padding: 16px 12px;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+  }
+
+  .title {
+    line-height: 0.98;
+  }
+
+  .subtitle {
+    margin-top: 10px;
+    font-size: 0.9rem;
+  }
+
+  .menu-trigger {
+    width: 42px;
+    height: 42px;
+    font-size: 24px;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric {
+    padding: 14px;
+  }
+
+  .year-strip {
+    padding: 14px;
+  }
+
+  .year-strip-head {
+    margin-bottom: 12px;
+  }
+
+  .year-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .year-current-badge {
+    align-self: flex-start;
+  }
+
+  .card-header {
+    padding: 12px;
+  }
+
+  .card-title {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .card-hint {
+    display: block;
+    font-size: 0.86rem;
+    line-height: 1.4;
+  }
+
+  .table-wrap table {
+    min-width: 640px;
+  }
+
+  .text-input,
+  input[type="number"],
+  input[type="date"],
+  select,
+  .btn-outline,
+  .icon-btn {
+    font-size: 16px;
+  }
+
+  .person-cell {
+    align-items: flex-start;
+  }
+
+  .history-modal-head,
+  .history-modal-body {
+    padding-inline: 14px;
+  }
+
+  .footer {
+    text-align: center;
+    padding-bottom: 8px;
+  }
+}
+
 .loading-copy {
   text-align: center;
   color: #f7fbfd;
