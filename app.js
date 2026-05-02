@@ -248,12 +248,13 @@ function renderHistory() {
   $('history-modal-body').innerHTML = buildHistoryMarkup(groups);
 }
 
-function highlightElement(element) {
+function highlightElement(element, options = {}) {
   if (!element) return;
+  const shouldScroll = options.scroll !== false;
   element.classList.remove('cell-highlight');
   void element.offsetWidth;
   element.classList.add('cell-highlight');
-  element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  if (shouldScroll) element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
   setTimeout(() => element.classList.remove('cell-highlight'), 3600);
 }
 
