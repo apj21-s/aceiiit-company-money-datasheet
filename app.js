@@ -10,7 +10,11 @@ let suspendRemoteRefreshUntil = 0;
 let isAppReady = false;
 let activeUserEmail = '';
 let activeUserName = '';
-let pendingHighlightSection = '';
+let pendingHighlightEntry = null;
+
+const HISTORY_PREVIEW_WEEKS = 2;
+const HISTORY_PREVIEW_ITEMS = 3;
+const HISTORY_LIMIT = 80;
 
 const fmt = value => 'Rs ' + (Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -107,6 +111,16 @@ function toggleMenu(forceOpen) {
   trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
 }
 
+function openHistoryModal() {
+  $('history-modal').classList.remove('modal-hidden');
+  document.body.classList.add('body-locked');
+}
+
+function closeHistoryModal() {
+  $('history-modal').classList.add('modal-hidden');
+  document.body.classList.remove('body-locked');
+}
+
 function prettifyField(field) {
   const map = { name: 'Name', price: 'Price', qty: 'Quantity', item: 'Item', list: 'List Price', discount: 'Discount', amount: 'Amount', by: 'Assigned Person', done: 'Status', notes: 'Notes', date: 'Date', share: 'Share Percentage', year: 'Year' };
   return map[field] || field;
@@ -121,6 +135,101 @@ function isTrackedSection(section) {
   return ['people', 'streams', 'discounts', 'expenses', 'withdrawals', 'years'].includes(section);
 }
 
+function normalizeComparable(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? Number(value) : 0;
+  if (typeof value === 'boolean') return value;
+  if (value == null) return '';
+  return String(value).trim();
+}
+
+function formatAuditValue(value) {
+  if (value === '' || value == null) return 'blank';
+  if (typeof value === 'boolean') return value ? 'Done' : 'Pending';
+  return String(value);
+}
+
+function areValuesEqual(left, right) {
+  return normalizeComparable(left) === normalizeComparable(right);
+}
+
+function getWeekStart(date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  const day = (copy.getDay() + 6) % 7;
+  copy.setDate(copy.getDate() - day);
+  return copy;
+}
+
+function getWeekKey(date) {
+  return getWeekStart(date).toISOString().slice(0, 10);
+}
+
+function getWeekLabel(weekKey) {
+  const start = new Date(weekKey + 'T00:00:00');
+  if (isNaN(start.getTime())) return 'Recent Updates';
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const startLabel = start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const endLabel = end.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${startLabel} - ${endLabel}`;
+}
+
+function getHistoryEntries() {
+  return (Array.isArray(state.meta && state.meta.editHistory) ? state.meta.editHistory : []).filter(entry => isTrackedSection(entry.section));
+}
+
+function groupHistory(entries) {
+  const groups = [];
+  const map = new Map();
+  entries.forEach((entry, index) => {
+    const key = entry.weekKey || getWeekKey(entry.at || new Date());
+    if (!map.has(key)) {
+      const group = { key, label: getWeekLabel(key), items: [] };
+      map.set(key, group);
+      groups.push(group);
+    }
+    map.get(key).items.push({ entry, index });
+  });
+  return groups;
+}
+
+function getHistoryEntryByIndex(index) {
+  const history = getHistoryEntries();
+  return Number.isInteger(index) && index >= 0 ? history[index] || null : null;
+}
+
+function buildHistoryCopy(entry) {
+  const changeLine = entry.actionType === 'change'
+    ? `${esc(prettifyField(entry.field))}: ${esc(formatAuditValue(entry.previousValue))} -> ${esc(formatAuditValue(entry.newValue))}`
+    : esc(entry.details || 'Manual update');
+  return `
+    <strong>${esc(entry.by || 'Approved User')}</strong> changed <strong>${esc(prettifySection(entry.section || ''))}</strong>${entry.field ? ` (${esc(prettifyField(entry.field))})` : ''}
+    <div>${changeLine}</div>
+    ${entry.details && entry.actionType === 'change' ? `<div class="history-subline">${esc(entry.details)}</div>` : ''}
+    <span class="history-meta">${esc(formatTimestamp(entry.at))}</span>
+  `;
+}
+
+function buildHistoryMarkup(groups, opts = {}) {
+  const isPreview = Boolean(opts.preview);
+  if (!groups.length) return '<p class="history-empty">No edit history yet.</p>';
+  return groups.map(group => `
+    <section class="history-group">
+      <div class="history-group-head">
+        <span>${esc(group.label)}</span>
+        <span>${group.items.length} edit${group.items.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="history-group-list">
+        ${group.items.map(item => `
+          <button class="history-item ${isPreview ? 'history-item-compact' : ''}" data-action="history-jump" data-history-index="${item.index}">
+            ${buildHistoryCopy(item.entry)}
+          </button>
+        `).join('')}
+      </div>
+    </section>
+  `).join('');
+}
+
 function updateAuditPanel() {
   const meta = state.meta || {};
   const validSection = isTrackedSection(meta.lastUpdatedSection) ? meta.lastUpdatedSection : '';
@@ -129,14 +238,23 @@ function updateAuditPanel() {
 }
 
 function renderHistory() {
-  const history = (Array.isArray(state.meta && state.meta.editHistory) ? state.meta.editHistory : []).filter(entry => isTrackedSection(entry.section));
-  $('history-list').innerHTML = history.length ? history.map((entry, index) => `
-    <button class="history-item" data-action="history-jump" data-history-index="${index}" data-history-section="${esc(entry.section || '')}">
-      <strong>${esc(entry.by || 'Approved User')}</strong> changed <strong>${esc(prettifySection(entry.section || ''))}</strong>${entry.field ? ` (${esc(prettifyField(entry.field))})` : ''}
-      ${entry.details ? `<div>${esc(entry.details)}</div>` : ''}
-      <span class="history-meta">${esc(formatTimestamp(entry.at))}</span>
-    </button>
-  `).join('') : '<p class="history-empty">No edit history yet.</p>';
+  const history = getHistoryEntries();
+  const groups = groupHistory(history);
+  const previewGroups = groups.slice(0, HISTORY_PREVIEW_WEEKS).map(group => ({
+    ...group,
+    items: group.items.slice(0, HISTORY_PREVIEW_ITEMS),
+  }));
+  $('history-list').innerHTML = buildHistoryMarkup(previewGroups, { preview: true });
+  $('history-modal-body').innerHTML = buildHistoryMarkup(groups);
+}
+
+function highlightElement(element) {
+  if (!element) return;
+  element.classList.remove('cell-highlight');
+  void element.offsetWidth;
+  element.classList.add('cell-highlight');
+  element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  setTimeout(() => element.classList.remove('cell-highlight'), 3600);
 }
 
 function highlightSection(section) {
@@ -150,24 +268,55 @@ function highlightSection(section) {
   setTimeout(() => card.classList.remove('card-highlight'), 3200);
 }
 
-function markManualUpdate(section, field, details) {
+function locateHistoryTarget(entry) {
+  if (!entry) return null;
+  if (entry.section === 'streams' && entry.field === 'share' && entry.rowId && entry.personId) {
+    return document.querySelector(`[data-table="streams"][data-id="${entry.rowId}"][data-share-person="${entry.personId}"]`);
+  }
+  if (entry.section && entry.rowId && entry.field) {
+    return document.querySelector(`[data-table="${entry.section}"][data-id="${entry.rowId}"][data-field="${entry.field}"]`);
+  }
+  return null;
+}
+
+function focusHistoryEntry(entry) {
+  if (!entry) return;
+  const target = locateHistoryTarget(entry);
+  if (target) {
+    highlightSection(entry.section);
+    setTimeout(() => highlightElement(target), 140);
+    return;
+  }
+  highlightSection(entry.section);
+}
+
+function markManualUpdate(config) {
+  const entryTime = new Date();
+  const entry = {
+    by: activeUserName || activeUserEmail || 'Approved User',
+    email: activeUserEmail || '',
+    section: config.section || '',
+    field: config.field || '',
+    details: config.details || '',
+    at: entryTime.toISOString(),
+    previousValue: config.previousValue ?? '',
+    newValue: config.newValue ?? '',
+    rowId: config.rowId || '',
+    personId: config.personId || '',
+    actionType: config.actionType || 'change',
+    weekKey: getWeekKey(entryTime),
+    year: currentYear(),
+  };
   state.meta = state.meta || {};
-  state.meta.lastUpdatedBy = activeUserName || activeUserEmail || 'Approved User';
-  state.meta.lastUpdatedEmail = activeUserEmail || '';
-  state.meta.lastUpdatedSection = section || '';
-  state.meta.lastUpdatedField = field || '';
-  state.meta.lastUpdatedAt = new Date().toISOString();
+  state.meta.lastUpdatedBy = entry.by;
+  state.meta.lastUpdatedEmail = entry.email;
+  state.meta.lastUpdatedSection = entry.section;
+  state.meta.lastUpdatedField = entry.field;
+  state.meta.lastUpdatedAt = entry.at;
   state.meta.editHistory = Array.isArray(state.meta.editHistory) ? state.meta.editHistory : [];
-  state.meta.editHistory.unshift({
-    by: state.meta.lastUpdatedBy,
-    email: state.meta.lastUpdatedEmail,
-    section: section || '',
-    field: field || '',
-    details: details || '',
-    at: state.meta.lastUpdatedAt,
-  });
-  state.meta.editHistory = state.meta.editHistory.slice(0, 25);
-  pendingHighlightSection = section || '';
+  state.meta.editHistory.unshift(entry);
+  state.meta.editHistory = state.meta.editHistory.slice(0, HISTORY_LIMIT);
+  pendingHighlightEntry = entry;
 }
 
 function ensureShares() {
@@ -219,10 +368,13 @@ function renderYearControls() {
   const years = Object.keys(rootState.years).sort((a, b) => Number(b) - Number(a));
   $('year-current').textContent = 'Year ' + currentYear();
   $('year-tabs').innerHTML = years.map(year => `
-    <button class="year-tab ${year === currentYear() ? 'year-tab-active' : ''}" data-action="switch-year" data-year="${esc(year)}">
-      <span class="year-tab-label">Workspace</span>
-      <span class="year-tab-value">${esc(year)}</span>
-    </button>
+    <div class="year-tab ${year === currentYear() ? 'year-tab-active' : ''}">
+      <button class="year-tab-main" data-action="switch-year" data-year="${esc(year)}">
+        <span class="year-tab-label">Workspace</span>
+        <span class="year-tab-value">${esc(year)}</span>
+      </button>
+      <button class="year-tab-delete" data-action="delete-year" data-year="${esc(year)}" aria-label="Delete workspace ${esc(year)}" ${years.length <= 1 ? 'disabled' : ''}>Delete</button>
+    </div>
   `).join('');
 }
 
@@ -313,10 +465,10 @@ function render() {
   updateSyncMeta();
   updateAuditPanel();
   renderHistory();
-  if (pendingHighlightSection) {
-    const sectionToHighlight = pendingHighlightSection;
-    pendingHighlightSection = '';
-    requestAnimationFrame(() => highlightSection(sectionToHighlight));
+  if (pendingHighlightEntry) {
+    const entryToHighlight = pendingHighlightEntry;
+    pendingHighlightEntry = null;
+    requestAnimationFrame(() => focusHistoryEntry(entryToHighlight));
   }
 }
 
@@ -353,8 +505,19 @@ function scheduleSave() {
 function updateRecord(table, id, field, value) {
   const record = state[table].find(item => item.id === id);
   if (!record) return;
-  record[field] = parseValue(field, value);
-  markManualUpdate(table, field, `${prettifyField(field)} updated to ${String(value).trim() || 'blank'}`);
+  const parsedValue = parseValue(field, value);
+  if (areValuesEqual(record[field], parsedValue)) return;
+  const previousValue = record[field];
+  record[field] = parsedValue;
+  markManualUpdate({
+    section: table,
+    field,
+    rowId: id,
+    previousValue,
+    newValue: parsedValue,
+    actionType: 'change',
+    details: `${prettifyField(field)} changed from ${formatAuditValue(previousValue)} to ${formatAuditValue(parsedValue)}`,
+  });
   render();
   scheduleSave();
 }
@@ -362,43 +525,114 @@ function updateRecord(table, id, field, value) {
 function updateShare(streamId, personId, value) {
   const stream = state.streams.find(item => item.id === streamId);
   if (!stream) return;
-  stream.shares[personId] = Number(value) || 0;
-  markManualUpdate('streams', 'share', `${getPersonName(personId)} share set to ${value || 0}%`);
+  const parsedValue = Number(value) || 0;
+  const previousValue = Number(stream.shares[personId]) || 0;
+  if (areValuesEqual(previousValue, parsedValue)) return;
+  stream.shares[personId] = parsedValue;
+  markManualUpdate({
+    section: 'streams',
+    field: 'share',
+    rowId: streamId,
+    personId,
+    previousValue,
+    newValue: parsedValue,
+    actionType: 'change',
+    details: `${getPersonName(personId)} share changed from ${formatAuditValue(previousValue)} to ${formatAuditValue(parsedValue)}`,
+  });
   render();
   scheduleSave();
 }
 
 function deletePerson(personId) {
   if (state.people.length <= 1) return;
-  state.people = state.people.filter(person => person.id !== personId);
+  const person = state.people.find(item => item.id === personId);
+  state.people = state.people.filter(item => item.id !== personId);
   const fallbackId = state.people[0] ? state.people[0].id : '';
   state.expenses.forEach(expense => { if (expense.by === personId) expense.by = fallbackId; });
   state.withdrawals.forEach(withdrawal => { if (withdrawal.by === personId) withdrawal.by = fallbackId; });
   state.streams.forEach(stream => { delete stream.shares[personId]; });
-  markManualUpdate('people', 'name', 'Removed a person from the master table');
+  markManualUpdate({
+    section: 'people',
+    field: 'name',
+    actionType: 'delete',
+    previousValue: person ? person.name : '',
+    newValue: '',
+    details: `Removed ${person ? person.name : 'a person'} from the master table`,
+  });
   render();
   scheduleSave();
 }
 
 function addRow(type) {
   const firstPersonId = getPeople()[0] ? getPeople()[0].id : '';
-  if (type === 'people') state.people.push({ id: 'p_' + Date.now(), name: 'New Person' });
-  if (type === 'streams') state.streams.push({ id: 's_' + Date.now(), name: '', price: 0, qty: 0, shares: Object.fromEntries(getPeople().map(person => [person.id, 0])) });
-  if (type === 'discounts') state.discounts.push({ id: 'd_' + Date.now(), item: '', list: 0, discount: 0 });
-  if (type === 'expenses') state.expenses.push({ id: 'e_' + Date.now(), name: '', amount: 0, by: firstPersonId, done: false, notes: '' });
-  if (type === 'withdrawals') state.withdrawals.push({ id: 'w_' + Date.now(), date: new Date().toISOString().slice(0, 10), amount: 0, by: firstPersonId });
-  markManualUpdate(type, 'name', 'Added a new row');
+  let record = null;
+  if (type === 'people') {
+    record = { id: 'p_' + Date.now(), name: '' };
+    state.people.push(record);
+  }
+  if (type === 'streams') {
+    record = { id: 's_' + Date.now(), name: '', price: 0, qty: 0, shares: Object.fromEntries(getPeople().map(person => [person.id, 0])) };
+    state.streams.push(record);
+  }
+  if (type === 'discounts') {
+    record = { id: 'd_' + Date.now(), item: '', list: 0, discount: 0 };
+    state.discounts.push(record);
+  }
+  if (type === 'expenses') {
+    record = { id: 'e_' + Date.now(), name: '', amount: 0, by: firstPersonId, done: false, notes: '' };
+    state.expenses.push(record);
+  }
+  if (type === 'withdrawals') {
+    record = { id: 'w_' + Date.now(), date: new Date().toISOString().slice(0, 10), amount: 0, by: firstPersonId };
+    state.withdrawals.push(record);
+  }
+  const primaryField = type === 'discounts' ? 'item' : type === 'withdrawals' ? 'amount' : 'name';
+  markManualUpdate({
+    section: type,
+    field: primaryField,
+    rowId: record && record.id ? record.id : '',
+    actionType: 'create',
+    previousValue: '',
+    newValue: '',
+    details: `Added a new row in ${prettifySection(type)}`,
+  });
   render();
   scheduleSave();
 }
 
 function deleteRow(action, id) {
+  let removed = null;
+  let section = '';
   if (action === 'delete-person') return deletePerson(id);
-  if (action === 'delete-stream') state.streams = state.streams.filter(item => item.id !== id);
-  if (action === 'delete-discount') state.discounts = state.discounts.filter(item => item.id !== id);
-  if (action === 'delete-expense') state.expenses = state.expenses.filter(item => item.id !== id);
-  if (action === 'delete-withdrawal') state.withdrawals = state.withdrawals.filter(item => item.id !== id);
-  markManualUpdate(action.replace('delete-', ''), 'name', 'Deleted a row');
+  if (action === 'delete-stream') {
+    section = 'streams';
+    removed = state.streams.find(item => item.id === id);
+    state.streams = state.streams.filter(item => item.id !== id);
+  }
+  if (action === 'delete-discount') {
+    section = 'discounts';
+    removed = state.discounts.find(item => item.id === id);
+    state.discounts = state.discounts.filter(item => item.id !== id);
+  }
+  if (action === 'delete-expense') {
+    section = 'expenses';
+    removed = state.expenses.find(item => item.id === id);
+    state.expenses = state.expenses.filter(item => item.id !== id);
+  }
+  if (action === 'delete-withdrawal') {
+    section = 'withdrawals';
+    removed = state.withdrawals.find(item => item.id === id);
+    state.withdrawals = state.withdrawals.filter(item => item.id !== id);
+  }
+  if (!section) return;
+  markManualUpdate({
+    section,
+    field: 'name',
+    actionType: 'delete',
+    previousValue: removed && (removed.name || removed.item || removed.amount || removed.date) ? (removed.name || removed.item || removed.amount || removed.date) : '',
+    newValue: '',
+    details: `Deleted a row from ${prettifySection(section)}`,
+  });
   render();
   scheduleSave();
 }
@@ -406,7 +640,6 @@ function deleteRow(action, id) {
 function changeYear(year) {
   if (!year) return;
   setCurrentYear(year);
-  markManualUpdate('years', 'year', 'Opened year ' + currentYear());
   persistRootState();
   render();
   scheduleSave();
@@ -417,7 +650,20 @@ function addNewYear(year) {
   if (!/^\d{4}$/.test(key)) return;
   if (!rootState.years[key]) rootState.years[key] = dataApi.createBlankYear();
   setCurrentYear(key);
-  markManualUpdate('years', 'year', 'Created a fresh datasheet for year ' + key);
+  persistRootState();
+  render();
+  scheduleSave();
+}
+
+function deleteYear(year) {
+  const key = String(year).trim();
+  const years = Object.keys(rootState.years);
+  if (!rootState.years[key] || years.length <= 1) return;
+  delete rootState.years[key];
+  if (currentYear() === key) {
+    const fallbackYear = Object.keys(rootState.years).sort((a, b) => Number(b) - Number(a))[0];
+    setCurrentYear(fallbackYear);
+  }
   persistRootState();
   render();
   scheduleSave();
@@ -454,8 +700,17 @@ document.addEventListener('click', async event => {
     await authApi.signOut();
   }
   else if (action === 'switch-year') changeYear(button.dataset.year);
+  else if (action === 'delete-year') deleteYear(button.dataset.year);
   else if (action === 'toggle-menu') toggleMenu();
-  else if (action === 'history-jump') highlightSection(button.dataset.historySection);
+  else if (action === 'open-history') openHistoryModal();
+  else if (action === 'close-history') closeHistoryModal();
+  else if (action === 'history-jump') {
+    const entry = getHistoryEntryByIndex(Number(button.dataset.historyIndex));
+    if (entry) {
+      closeHistoryModal();
+      focusHistoryEntry(entry);
+    }
+  }
   else if (action.startsWith('add-')) addRow(action.replace('add-', ''));
   else deleteRow(action, id);
 });
@@ -466,6 +721,19 @@ document.addEventListener('click', event => {
   if (!menu || menu.classList.contains('menu-hidden')) return;
   if (menu.contains(event.target) || trigger.contains(event.target)) return;
   toggleMenu(false);
+});
+
+document.addEventListener('click', event => {
+  const modal = $('history-modal');
+  if (!modal || modal.classList.contains('modal-hidden')) return;
+  if (event.target === modal) closeHistoryModal();
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    closeHistoryModal();
+    toggleMenu(false);
+  }
 });
 
 function exportCSV() {
@@ -504,7 +772,7 @@ async function refreshFromRemote(force) {
       rootState = result.data;
       setCurrentYear(rootState.currentYear);
       lastUpdatedAt = result.updatedAt;
-      pendingHighlightSection = state.meta && state.meta.lastUpdatedSection ? state.meta.lastUpdatedSection : '';
+      pendingHighlightEntry = getHistoryEntries()[0] || null;
       render();
       setSyncStatus('remote', force ? 'Protected shared data refreshed.' : 'Received latest updates from another approved user.');
     }
@@ -531,7 +799,7 @@ async function bootAuthorizedApp(email) {
   rootState = result.data;
   setCurrentYear(rootState.currentYear);
   lastUpdatedAt = result.updatedAt || null;
-  pendingHighlightSection = state.meta && state.meta.lastUpdatedSection ? state.meta.lastUpdatedSection : '';
+  pendingHighlightEntry = getHistoryEntries()[0] || null;
   render();
   isAppReady = true;
   setSyncStatus(result.source, result.source === 'remote' ? 'Only approved signed-in users can access this live sheet.' : 'Signed in, but remote access is unavailable.');
@@ -610,7 +878,6 @@ function setupLoginForm() {
     event.preventDefault();
     addNewYear($('new-year-input').value);
     $('new-year-input').value = '';
-    toggleMenu(true);
   });
 }
 

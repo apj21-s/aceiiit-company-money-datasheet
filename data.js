@@ -43,6 +43,22 @@ const DEFAULT_SHEET = {
   ],
 };
 
+const BLANK_SHEET = {
+  meta: {
+    lastUpdatedBy: '',
+    lastUpdatedEmail: '',
+    lastUpdatedSection: '',
+    lastUpdatedField: '',
+    lastUpdatedAt: '',
+    editHistory: [],
+  },
+  people: [],
+  streams: [],
+  discounts: [],
+  expenses: [],
+  withdrawals: [],
+};
+
 const DEFAULT_YEAR = String(new Date().getFullYear());
 const DEFAULT_DATA = {
   currentYear: DEFAULT_YEAR,
@@ -74,13 +90,20 @@ function normalizeSheet(data) {
       lastUpdatedSection: raw.meta.lastUpdatedSection || '',
       lastUpdatedField: raw.meta.lastUpdatedField || '',
       lastUpdatedAt: raw.meta.lastUpdatedAt || '',
-      editHistory: Array.isArray(raw.meta.editHistory) ? raw.meta.editHistory.slice(0, 50).map(entry => ({
+      editHistory: Array.isArray(raw.meta.editHistory) ? raw.meta.editHistory.slice(0, 100).map(entry => ({
         by: entry.by || '',
         email: entry.email || '',
         section: entry.section || '',
         field: entry.field || '',
         details: entry.details || '',
         at: entry.at || '',
+        previousValue: entry.previousValue ?? '',
+        newValue: entry.newValue ?? '',
+        rowId: entry.rowId || '',
+        personId: entry.personId || '',
+        actionType: entry.actionType || '',
+        weekKey: entry.weekKey || '',
+        year: entry.year || '',
       })) : [],
     };
   }
@@ -172,7 +195,7 @@ function normalizeData(data) {
 }
 
 function createBlankYear() {
-  return normalizeSheet(DEFAULT_SHEET);
+  return normalizeSheet(BLANK_SHEET);
 }
 
 function readLocalData() {

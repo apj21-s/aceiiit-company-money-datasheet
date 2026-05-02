@@ -68,39 +68,60 @@ body {
   gap: 20px;
 }
 
-.loading-spinner {
+.loading-money-scene {
   position: relative;
-  width: 92px;
-  height: 92px;
+  width: min(320px, 100%);
+  height: 140px;
+  overflow: hidden;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    radial-gradient(circle at 20% 50%, rgba(255, 214, 102, 0.16), transparent 24%);
 }
 
-.loading-ring {
+.money-note {
   position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 3px solid transparent;
+  top: 50%;
+  left: -20%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 232, 166, 0.96), rgba(244, 200, 84, 0.92));
+  color: #18343f;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  box-shadow: 0 14px 28px rgba(8, 17, 24, 0.26);
+  transform: translateY(-50%);
+  animation: moneyFloat 6s linear infinite;
 }
 
-.ring-a {
-  border-top-color: rgba(255, 255, 255, 0.88);
-  border-right-color: rgba(255, 255, 255, 0.24);
-  animation: orbitSpin 1.2s linear infinite;
-}
+.note-a { animation-delay: 0s; top: 26%; }
+.note-b { animation-delay: 1.2s; top: 58%; }
+.note-c { animation-delay: 2.2s; top: 40%; min-width: 80px; }
+.note-d { animation-delay: 3.1s; top: 72%; }
+.note-e { animation-delay: 4.2s; top: 18%; min-width: 88px; }
 
-.ring-b {
-  inset: 12px;
-  border-left-color: rgba(93, 222, 172, 0.92);
-  border-bottom-color: rgba(101, 196, 255, 0.3);
-  animation: orbitSpinReverse 1.5s linear infinite;
-}
-
-.loading-dot {
-  position: absolute;
-  inset: 28px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(93, 222, 172, 0.95), rgba(101, 196, 255, 0.95));
-  box-shadow: 0 0 26px rgba(101, 196, 255, 0.35);
-  animation: coreFloat 2.2s ease-in-out infinite;
+@keyframes moneyFloat {
+  0% {
+    transform: translate(-10%, -50%) rotate(-9deg) scale(0.9);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(160%, -62%) rotate(6deg) scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(360%, -46%) rotate(-4deg) scale(0.95);
+    opacity: 0;
+  }
 }
 
 .loading-copy {
@@ -119,26 +140,6 @@ body {
   margin: 10px 0 0;
   color: rgba(247, 251, 253, 0.78);
   font-size: 0.98rem;
-}
-
-@keyframes orbitSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes orbitSpinReverse {
-  from { transform: rotate(360deg) scale(1.02); }
-  to { transform: rotate(0deg) scale(1.02); }
-}
-
-@keyframes orbitPulse {
-  0%, 100% { transform: scale(1); opacity: 0.75; }
-  50% { transform: scale(1.08); opacity: 1; }
-}
-
-@keyframes coreFloat {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
 }
 
 .auth-shell {
@@ -434,6 +435,35 @@ body {
   background: #f3efe5;
 }
 
+.history-item-compact {
+  padding: 9px 11px;
+}
+
+.history-group {
+  display: grid;
+  gap: 8px;
+}
+
+.history-group + .history-group {
+  margin-top: 12px;
+}
+
+.history-group-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.history-group-list {
+  display: grid;
+  gap: 8px;
+}
+
 .history-empty {
   color: var(--muted);
 }
@@ -442,6 +472,11 @@ body {
   color: var(--muted);
   display: block;
   margin-top: 4px;
+}
+
+.history-subline {
+  margin-top: 2px;
+  color: var(--muted);
 }
 
 .metric-grid {
@@ -486,14 +521,14 @@ body {
 }
 
 .year-tab {
-  min-width: 120px;
-  padding: 14px 16px;
+  min-width: 148px;
+  padding: 10px;
   border-radius: 16px;
   border: 1px solid rgba(190, 180, 162, 0.6);
   background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(247,243,235,0.95));
-  text-align: left;
-  cursor: pointer;
   transition: 0.18s ease;
+  display: grid;
+  gap: 10px;
 }
 
 .year-tab:hover {
@@ -520,6 +555,32 @@ body {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--ink);
+}
+
+.year-tab-main {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 4px 6px 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.year-tab-delete {
+  width: 100%;
+  border: 1px solid rgba(166, 56, 56, 0.18);
+  background: rgba(166, 56, 56, 0.05);
+  color: var(--bad);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.year-tab-delete:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .year-create-form {
@@ -576,6 +637,13 @@ body {
   animation: sectionPulse 3.2s ease;
 }
 
+.cell-highlight {
+  background: #fff2a8 !important;
+  box-shadow: 0 0 0 3px rgba(242, 197, 0, 0.32);
+  border-color: rgba(186, 145, 0, 0.45) !important;
+  transition: background 0.2s ease;
+}
+
 @keyframes sectionPulse {
   0% {
     box-shadow: 0 0 0 0 rgba(13, 92, 99, 0.38), var(--shadow);
@@ -589,6 +657,72 @@ body {
     box-shadow: var(--shadow);
     transform: translateY(0);
   }
+}
+
+.history-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 17, 24, 0.58);
+  backdrop-filter: blur(6px);
+}
+
+.modal-hidden {
+  display: none;
+}
+
+.body-locked {
+  overflow: hidden;
+}
+
+.history-modal-card {
+  width: min(980px, 100%);
+  max-height: min(88vh, 920px);
+  overflow: hidden;
+  border-radius: 24px;
+  background: rgba(255, 253, 248, 0.98);
+  border: 1px solid rgba(190, 180, 162, 0.72);
+  box-shadow: 0 34px 80px rgba(8, 17, 24, 0.28);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.history-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.history-modal-eyebrow {
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.history-modal-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.4vw, 2.1rem);
+  letter-spacing: -0.03em;
+}
+
+.history-modal-close {
+  color: var(--ink);
+  background: rgba(13, 92, 99, 0.08);
+  border-color: rgba(13, 92, 99, 0.18);
+  line-height: 1;
+}
+
+.history-modal-body {
+  overflow: auto;
+  padding: 18px 24px 24px;
+  display: grid;
+  gap: 16px;
 }
 
 .card-header {
