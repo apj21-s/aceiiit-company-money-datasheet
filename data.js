@@ -1,13 +1,16 @@
 /**
- * data.js - Shared/local data layer for the company datasheet.
- *
- * Default behavior:
- * - If Supabase config is present in config.js, the app loads and saves
- *   one shared JSON document for everyone.
- * - If config is missing, it falls back to localStorage.
+ * Shared/local data layer.
+ * Root shape:
+ * {
+ *   currentYear: "2026",
+ *   years: {
+ *     "2026": <sheet data>,
+ *     "2027": <sheet data>
+ *   }
+ * }
  */
 
-const DEFAULT_DATA = {
+const DEFAULT_SHEET = {
   meta: {
     lastUpdatedBy: '',
     lastUpdatedEmail: '',
@@ -19,36 +22,36 @@ const DEFAULT_DATA = {
   people: [
     { id: 'p1', name: 'Priyanshu' },
     { id: 'p2', name: 'Uman' },
-    { id: 'p3', name: 'Arkaprava' },
+    { id: 'p3', name: 'Arco' },
   ],
   streams: [
     { id: 's1', name: 'Class + Notes', price: 1499, qty: 16, shares: { p1: 50, p2: 35, p3: 15 } },
     { id: 's2', name: 'Only Notes', price: 499, qty: 3, shares: { p1: 50, p2: 35, p3: 15 } },
     { id: 's3', name: 'Mock Test', price: 599, qty: 18, shares: { p1: 20, p2: 20, p3: 60 } },
-    { id: 's4', name: 'Combo Pack (C+N)', price: 1356.82, qty: 1, shares: { p1: 50, p2: 35, p3: 15 } },
-    { id: 's5', name: 'Combo Pack (Mock)', price: 542.18, qty: 1, shares: { p1: 20, p2: 20, p3: 60 } },
   ],
   discounts: [
     { id: 'd1', item: 'Class + Notes', list: 1499, discount: 142.18 },
     { id: 'd2', item: 'Mock Test', list: 599, discount: 56.82 },
-    { id: 'd3', item: 'Offer bundle', list: 2098, discount: 199.0 },
   ],
   expenses: [
     { id: 'e1', name: 'Biryani party', amount: 673, by: 'p3', done: true, notes: 'Done' },
     { id: 'e2', name: 'Domain', amount: 116.82, by: 'p3', done: true, notes: 'Done' },
-    { id: 'e3', name: 'Reel Boost 1', amount: 177, by: 'p2', done: true, notes: 'Done' },
-    { id: 'e4', name: 'Reel Boost 2', amount: 0, by: 'p1', done: false, notes: 'Amount not recorded - update when known' },
   ],
   withdrawals: [
     { id: 'w1', date: '2026-03-29', amount: 2000, by: 'p1' },
-    { id: 'w2', date: '2026-04-01', amount: 100, by: 'p1' },
-    { id: 'w3', date: '2026-04-04', amount: 2000, by: 'p1' },
-    { id: 'w4', date: '2026-04-30', amount: 4000, by: 'p1' },
-    { id: 'w5', date: '2026-04-30', amount: 1000, by: 'p1' },
+    { id: 'w2', date: '2026-04-30', amount: 4000, by: 'p1' },
   ],
 };
 
-const STORAGE_KEY = 'company_datasheet_v2';
+const DEFAULT_YEAR = String(new Date().getFullYear());
+const DEFAULT_DATA = {
+  currentYear: DEFAULT_YEAR,
+  years: {
+    [DEFAULT_YEAR]: JSON.parse(JSON.stringify(DEFAULT_SHEET)),
+  },
+};
+
+const STORAGE_KEY = 'company_datasheet_v3';
 const DOCUMENT_ID = 'main';
 const CONFIG = window.APP_CONFIG || {};
 
@@ -60,8 +63,8 @@ function uid(prefix) {
   return prefix + '_' + Math.random().toString(36).slice(2, 10);
 }
 
-function normalizeData(data) {
-  const base = deepClone(DEFAULT_DATA);
+function normalizeSheet(data) {
+  const base = deepClone(DEFAULT_SHEET);
   const raw = data && typeof data === 'object' ? data : {};
 
   if (raw.meta && typeof raw.meta === 'object') {
@@ -76,7 +79,6 @@ function normalizeData(data) {
         email: entry.email || '',
         section: entry.section || '',
         field: entry.field || '',
-        action: entry.action || '',
         details: entry.details || '',
         at: entry.at || '',
       })) : [],
@@ -91,29 +93,17 @@ function normalizeData(data) {
   }
 
   const legacyNameToId = {};
-  base.people.forEach(person => {
-    legacyNameToId[person.name] = person.id;
-  });
+  base.people.forEach(person => { legacyNameToId[person.name] = person.id; });
 
   if (Array.isArray(raw.streams)) {
     base.streams = raw.streams.map((stream, index) => {
       const shares = {};
-
       if (stream.shares && typeof stream.shares === 'object') {
-        base.people.forEach(person => {
-          shares[person.id] = Number(stream.shares[person.id]) || 0;
-        });
+        base.people.forEach(person => { shares[person.id] = Number(stream.shares[person.id]) || 0; });
       } else {
-        const legacyMap = {
-          ps: base.people[0] && base.people[0].id,
-          us: base.people[1] && base.people[1].id,
-          as: base.people[2] && base.people[2].id,
-        };
-        Object.entries(legacyMap).forEach(([key, id]) => {
-          if (id) shares[id] = Number(stream[key]) || 0;
-        });
+        const legacyMap = { ps: base.people[0] && base.people[0].id, us: base.people[1] && base.people[1].id, as: base.people[2] && base.people[2].id };
+        Object.entries(legacyMap).forEach(([key, id]) => { if (id) shares[id] = Number(stream[key]) || 0; });
       }
-
       return {
         id: stream.id || uid('s' + index),
         name: stream.name || '',
@@ -156,35 +146,47 @@ function normalizeData(data) {
   return base;
 }
 
+function normalizeData(data) {
+  const raw = data && typeof data === 'object' ? data : {};
+
+  if (raw.years && typeof raw.years === 'object') {
+    const years = {};
+    Object.entries(raw.years).forEach(([year, sheet]) => {
+      years[String(year)] = normalizeSheet(sheet);
+    });
+    const yearKeys = Object.keys(years);
+    const fallbackYear = yearKeys[0] || DEFAULT_YEAR;
+    if (!years[fallbackYear]) years[fallbackYear] = normalizeSheet(DEFAULT_SHEET);
+    return {
+      currentYear: String(raw.currentYear || fallbackYear),
+      years,
+    };
+  }
+
+  return {
+    currentYear: DEFAULT_YEAR,
+    years: {
+      [DEFAULT_YEAR]: normalizeSheet(raw),
+    },
+  };
+}
+
+function createBlankYear() {
+  return normalizeSheet(DEFAULT_SHEET);
+}
+
 function readLocalData() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) return normalizeData(JSON.parse(saved));
-  } catch (error) {
-    /* ignore parse errors */
-  }
-
-  try {
-    const legacy = localStorage.getItem('revenue_dashboard_v1');
-    if (legacy) return normalizeData(JSON.parse(legacy));
-  } catch (error) {
-    /* ignore legacy parse errors */
-  }
-
+  } catch (error) {}
   return normalizeData(DEFAULT_DATA);
 }
 
 function saveLocalData(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeData(data)));
-  } catch (error) {
-    /* ignore local write errors */
-  }
-}
-
-function resetLocalData() {
-  localStorage.removeItem(STORAGE_KEY);
-  return normalizeData(DEFAULT_DATA);
+  } catch (error) {}
 }
 
 function hasRemoteConfig() {
@@ -221,7 +223,6 @@ async function saveRemoteData(data) {
     payload: normalizeData(data),
     updated_at: new Date().toISOString(),
   };
-
   const url = getRemoteBaseUrl() + '?id=eq.' + encodeURIComponent(payload.id);
   const response = await fetch(url, {
     method: 'POST',
@@ -234,83 +235,44 @@ async function saveRemoteData(data) {
 }
 
 async function loadData() {
-  if (!hasRemoteConfig()) {
-    return {
-      data: readLocalData(),
-      source: 'local',
-      updatedAt: null,
-    };
-  }
-
+  if (!hasRemoteConfig()) return { data: readLocalData(), source: 'local', updatedAt: null };
   try {
     const row = await fetchRemoteRow();
     if (!row) {
-      const starter = normalizeData(DEFAULT_DATA);
-      const created = await saveRemoteData(starter);
-      return {
-        data: normalizeData(created.payload),
-        source: 'remote',
-        updatedAt: created.updated_at || null,
-      };
+      const created = await saveRemoteData(DEFAULT_DATA);
+      return { data: normalizeData(created.payload), source: 'remote', updatedAt: created.updated_at || null };
     }
-
-    return {
-      data: normalizeData(row.payload),
-      source: 'remote',
-      updatedAt: row.updated_at || null,
-    };
+    return { data: normalizeData(row.payload), source: 'remote', updatedAt: row.updated_at || null };
   } catch (error) {
     console.error(error);
-    return {
-      data: readLocalData(),
-      source: 'local-fallback',
-      updatedAt: null,
-      error: error.message,
-    };
+    return { data: readLocalData(), source: 'local-fallback', updatedAt: null, error: error.message };
   }
 }
 
 async function saveData(data) {
   const normalized = normalizeData(data);
-
   if (!hasRemoteConfig()) {
     saveLocalData(normalized);
-    return {
-      data: normalized,
-      source: 'local',
-      updatedAt: null,
-    };
+    return { data: normalized, source: 'local', updatedAt: null };
   }
-
   try {
     const row = await saveRemoteData(normalized);
-    return {
-      data: normalizeData(row.payload),
-      source: 'remote',
-      updatedAt: row.updated_at || null,
-    };
+    return { data: normalizeData(row.payload), source: 'remote', updatedAt: row.updated_at || null };
   } catch (error) {
     console.error(error);
     saveLocalData(normalized);
-    return {
-      data: normalized,
-      source: 'local-fallback',
-      updatedAt: null,
-      error: error.message,
-    };
+    return { data: normalized, source: 'local-fallback', updatedAt: null, error: error.message };
   }
-}
-
-async function resetData() {
-  const fresh = resetLocalData();
-  return saveData(fresh);
 }
 
 window.dataApi = {
   DEFAULT_DATA,
+  DEFAULT_SHEET,
+  DEFAULT_YEAR,
   normalizeData,
+  normalizeSheet,
+  createBlankYear,
   loadData,
   saveData,
-  resetData,
   hasRemoteConfig,
 };

@@ -25,7 +25,7 @@
     <div class="auth-card">
       <p class="eyebrow auth-eyebrow">Restricted Access</p>
       <h2 class="auth-title">ACE-IIIT Team Sign In</h2>
-      <p class="auth-copy">Only the approved accounts for Priyanshu, Uman, and Arkaprava can open and edit this sheet.</p>
+      <p class="auth-copy">A secure money workspace for the ACE-IIIT core team. Only approved accounts can open and edit this sheet.</p>
       <form id="login-form" class="auth-form">
         <label class="auth-label" for="login-email">Email</label>
         <input id="login-email" class="text-input auth-input" type="email" autocomplete="email" placeholder="name@example.com" required />
@@ -60,6 +60,12 @@
               <button class="btn-outline small" data-action="sign-out">Sign Out</button>
             </div>
             <div class="menu-block">
+              <span class="menu-label">Sync</span>
+              <span id="sync-source" class="sync-badge sync-loading">Loading</span>
+              <span id="sync-note" class="menu-note">Checking storage mode...</span>
+              <span id="sync-meta" class="menu-note">Changes save automatically</span>
+            </div>
+            <div class="menu-block">
               <span class="menu-label">Password</span>
               <form id="password-form" class="password-form">
                 <input id="new-password" class="text-input password-input" type="password" autocomplete="new-password" placeholder="New password" />
@@ -79,20 +85,29 @@
                 <p class="history-empty">No edit history yet.</p>
               </div>
             </div>
-            <div class="menu-block">
-              <span id="sync-source" class="sync-badge sync-loading">Loading</span>
-              <span id="sync-note" class="menu-note">Checking storage mode...</span>
-              <span id="sync-meta" class="menu-note">Changes save automatically</span>
-            </div>
             <div class="menu-actions">
               <button class="btn-outline small" data-action="sync-now">Sync Now</button>
               <button class="btn-outline small" data-action="export">Export CSV</button>
-              <button class="btn-outline small danger" data-action="reset">Reset</button>
             </div>
           </div>
         </div>
       </div>
     </header>
+
+    <section class="year-strip card">
+      <div class="year-strip-head">
+        <div>
+          <p class="card-title">Year Workspaces</p>
+          <p class="card-hint">Each year keeps its own independent datasheet with the same interface.</p>
+        </div>
+        <span id="year-current" class="year-current-badge">Year 2026</span>
+      </div>
+      <div id="year-tabs" class="year-tabs"></div>
+      <form id="year-form" class="year-create-form">
+        <input id="new-year-input" class="text-input year-input" type="text" inputmode="numeric" maxlength="4" placeholder="Create new year like 2027" />
+        <button type="submit" class="btn-outline">Create New Year</button>
+      </form>
+    </section>
 
     <section class="metric-grid" id="metric-grid"></section>
 

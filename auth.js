@@ -118,6 +118,11 @@
       password,
     });
 
+    if (!error && data.user && !data.user.email_confirmed_at) {
+      await supabaseClient.auth.signOut();
+      return { error: { message: 'This email is not verified yet. Please verify it first.' } };
+    }
+
     if (!error && data.session && await signOutIfUnauthorized(data.session)) {
       return { error: { message: 'This account is not approved for access.' } };
     }

@@ -146,6 +146,11 @@ body {
   display: grid;
   place-items: center;
   padding: 24px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255, 214, 102, 0.22), transparent 20%),
+    radial-gradient(circle at 85% 15%, rgba(93, 222, 172, 0.18), transparent 24%),
+    radial-gradient(circle at 50% 80%, rgba(101, 196, 255, 0.12), transparent 24%),
+    linear-gradient(145deg, #102533, #17384b 60%, #21475b);
 }
 
 .auth-hidden,
@@ -157,9 +162,21 @@ body {
   width: min(460px, 100%);
   padding: 28px;
   border-radius: 24px;
-  background: rgba(255, 253, 248, 0.96);
-  border: 1px solid rgba(190, 180, 162, 0.55);
-  box-shadow: var(--shadow);
+  background: rgba(255, 250, 241, 0.95);
+  border: 1px solid rgba(227, 194, 121, 0.45);
+  box-shadow: 0 22px 70px rgba(5, 14, 20, 0.28);
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(255, 214, 102, 0.12), transparent 30%, transparent 70%, rgba(93, 222, 172, 0.12)),
+    repeating-linear-gradient(90deg, transparent 0 38px, rgba(16, 37, 51, 0.028) 38px 39px);
+  pointer-events: none;
 }
 
 .auth-eyebrow {
@@ -176,11 +193,13 @@ body {
 .auth-copy {
   margin: 12px 0 20px;
   color: var(--muted);
+  position: relative;
 }
 
 .auth-form {
   display: grid;
   gap: 10px;
+  position: relative;
 }
 
 .auth-form-secondary {
@@ -214,6 +233,7 @@ body {
   margin: 14px 0 0;
   color: var(--muted);
   font-size: 13px;
+  position: relative;
 }
 
 .auth-message {
@@ -394,12 +414,24 @@ body {
 
 .history-item,
 .history-empty {
+  width: 100%;
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--surface-2);
   font-size: 12px;
   line-height: 1.5;
   color: var(--ink);
+}
+
+.history-item {
+  border: 1px solid transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-item:hover {
+  border-color: rgba(13, 92, 99, 0.22);
+  background: #f3efe5;
 }
 
 .history-empty {
@@ -417,6 +449,87 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
+}
+
+.year-strip {
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.year-strip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.year-current-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.year-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.year-tab {
+  min-width: 120px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(190, 180, 162, 0.6);
+  background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(247,243,235,0.95));
+  text-align: left;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.year-tab:hover {
+  transform: translateY(-1px);
+  border-color: rgba(13, 92, 99, 0.35);
+}
+
+.year-tab-active {
+  background: linear-gradient(180deg, rgba(13, 92, 99, 0.14), rgba(223, 241, 242, 0.7));
+  border-color: rgba(13, 92, 99, 0.45);
+}
+
+.year-tab-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.year-tab-value {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.year-create-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.year-input {
+  max-width: 220px;
 }
 
 .metric,
@@ -696,6 +809,10 @@ select:focus {
   }
 
   .menu-actions {
+    flex-direction: column;
+  }
+
+  .year-create-form {
     flex-direction: column;
   }
 }
