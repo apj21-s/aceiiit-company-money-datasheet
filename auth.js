@@ -125,6 +125,23 @@
     return { data, error };
   }
 
+  async function sendPasswordReset(email) {
+    ensureClient();
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isAllowedEmail(normalizedEmail)) {
+      return { error: { message: 'This email is not approved for access.' } };
+    }
+
+    const redirectTo = window.location.href.split('#')[0];
+    return supabaseClient.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
+  }
+
+  async function updatePassword(newPassword) {
+    ensureClient();
+    return supabaseClient.auth.updateUser({ password: newPassword });
+  }
+
   async function signOut() {
     if (!supabaseClient) return;
     await supabaseClient.auth.signOut();
@@ -148,6 +165,8 @@
     getAllowedEmails,
     isAllowedEmail,
     signInWithPassword,
+    sendPasswordReset,
+    updatePassword,
     signOut,
     getSession,
     getUser,

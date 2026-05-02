@@ -10,6 +10,7 @@ let suspendRemoteRefreshUntil = 0;
 let isAppReady = false;
 let activeUserEmail = '';
 let activeUserName = '';
+let isRecoveryMode = false;
 
 const fmt = value => 'Rs ' + (Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -48,6 +49,12 @@ function showApp(email) {
   $('auth-shell').classList.add('auth-hidden');
   $('app-shell').classList.remove('page-hidden');
   $('user-email').textContent = email || '';
+}
+
+function setPasswordMessage(message, isError) {
+  const el = $('password-message');
+  el.textContent = message;
+  el.style.color = isError ? '#ffd6d6' : 'rgba(246, 251, 253, 0.82)';
 }
 
 function setSyncStatus(mode, message) {
@@ -544,6 +551,7 @@ async function bootAuthorizedApp(email) {
 async function handleAuthState(detail) {
   const session = detail && detail.session;
   const authorized = detail && detail.authorized;
+  const reason = detail && detail.reason;
 
   if (!session || !authorized) {
     isAppReady = false;
@@ -556,8 +564,12 @@ async function handleAuthState(detail) {
   }
 
   if (session.user && session.user.email) {
+    isRecoveryMode = reason === 'PASSWORD_RECOVERY';
     $('login-password').value = '';
     await bootAuthorizedApp(session.user.email);
+    if (isRecoveryMode) {
+      setPasswordMessage('Recovery session detected. Set a new password now.', false);
+    }
   }
 }
 
@@ -574,6 +586,44 @@ function setupLoginForm() {
     } else {
       $('auth-message').textContent = 'Sign-in successful. Loading datasheet...';
     }
+  });
+
+  $('forgot-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const email = $('forgot-email').value.trim();
+    $('auth-message').textContent = 'Sending reset link...';
+    const { error } = await authApi.sendPasswordReset(email);
+    $('auth-message').textContent = error
+      ? (error.message || 'Could not send reset link.')
+      : 'Reset link sent. Check that email inbox.';
+  });
+
+  $('password-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const password = $('new-password').value;
+    const confirm = $('confirm-password').value;
+
+    if (!password || password.length < 8) {
+      setPasswordMessage('Use at least 8 characters for the new password.', true);
+      return;
+    }
+
+    if (password !== confirm) {
+      setPasswordMessage('New password and confirm password do not match.', true);
+      return;
+    }
+
+    setPasswordMessage('Updating password...', false);
+    const { error } = await authApi.updatePassword(password);
+    if (error) {
+      setPasswordMessage(error.message || 'Could not update password.', true);
+      return;
+    }
+
+    $('new-password').value = '';
+    $('confirm-password').value = '';
+    isRecoveryMode = false;
+    setPasswordMessage('Password updated successfully.', false);
   });
 }
 

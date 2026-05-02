@@ -19,6 +19,11 @@
         <input id="login-password" class="text-input auth-input" type="password" autocomplete="current-password" placeholder="Password" required />
         <button type="submit" class="btn-outline auth-submit">Sign In</button>
       </form>
+      <form id="forgot-form" class="auth-form auth-form-secondary">
+        <label class="auth-label" for="forgot-email">Reset Password</label>
+        <input id="forgot-email" class="text-input auth-input" type="email" autocomplete="email" placeholder="Approved email for reset link" />
+        <button type="submit" class="btn-outline">Send Reset Link</button>
+      </form>
       <p id="auth-message" class="auth-message">Sign in with an approved team account.</p>
       <p id="auth-allowed" class="auth-allowed"></p>
     </div>
@@ -36,6 +41,15 @@
           <div class="user-panel">
             <span id="user-email" class="user-email"></span>
             <button class="btn-outline small" data-action="sign-out">Sign Out</button>
+          </div>
+          <div class="password-panel">
+            <span class="audit-title">Password</span>
+            <form id="password-form" class="password-form">
+              <input id="new-password" class="text-input password-input" type="password" autocomplete="new-password" placeholder="New password" />
+              <input id="confirm-password" class="text-input password-input" type="password" autocomplete="new-password" placeholder="Confirm password" />
+              <button type="submit" class="btn-outline small">Update Password</button>
+            </form>
+            <span id="password-message" class="password-message">Change it anytime after login.</span>
           </div>
           <div class="audit-panel">
             <span class="audit-title">Last Manual Update</span>

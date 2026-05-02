@@ -135,6 +135,27 @@ Once deployed:
 - only logged-in approved users can access the sheet
 - all shared reads and writes happen with the signed-in user token
 
+## Password Management
+
+Approved users now have two ways to manage passwords:
+
+1. `Reset Password` from the login screen
+   - enter the approved email
+   - Supabase sends a recovery link
+   - when they open that link, the app loads and they can set a new password
+
+2. `Update Password` after login
+   - sign in normally
+   - use the password form in the header
+   - save a new password directly
+
+Important Supabase setting:
+
+- In `Authentication` settings, add your GitHub Pages site URL to the allowed redirect URLs / site URL list.
+- Example:
+  - `https://yourusername.github.io`
+  - or `https://yourusername.github.io/your-repo-name/`
+
 ## Important Notes
 
 - If the emails in `config.js` and the RLS policy do not match, access will fail.
