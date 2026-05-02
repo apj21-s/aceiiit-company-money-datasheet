@@ -8,6 +8,13 @@
  */
 
 const DEFAULT_DATA = {
+  meta: {
+    lastUpdatedBy: '',
+    lastUpdatedEmail: '',
+    lastUpdatedSection: '',
+    lastUpdatedField: '',
+    lastUpdatedAt: '',
+  },
   people: [
     { id: 'p1', name: 'Priyanshu' },
     { id: 'p2', name: 'Uman' },
@@ -55,6 +62,16 @@ function uid(prefix) {
 function normalizeData(data) {
   const base = deepClone(DEFAULT_DATA);
   const raw = data && typeof data === 'object' ? data : {};
+
+  if (raw.meta && typeof raw.meta === 'object') {
+    base.meta = {
+      lastUpdatedBy: raw.meta.lastUpdatedBy || '',
+      lastUpdatedEmail: raw.meta.lastUpdatedEmail || '',
+      lastUpdatedSection: raw.meta.lastUpdatedSection || '',
+      lastUpdatedField: raw.meta.lastUpdatedField || '',
+      lastUpdatedAt: raw.meta.lastUpdatedAt || '',
+    };
+  }
 
   if (Array.isArray(raw.people) && raw.people.length) {
     base.people = raw.people.map((person, index) => ({
@@ -161,13 +178,15 @@ function resetLocalData() {
 }
 
 function hasRemoteConfig() {
-  return Boolean(CONFIG.supabaseUrl && CONFIG.supabaseAnonKey);
+  return Boolean(CONFIG.supabaseUrl && CONFIG.supabaseAnonKey && window.authApi);
 }
 
-function getRemoteHeaders(extra = {}) {
+async function getRemoteHeaders(extra = {}) {
+  const accessToken = await window.authApi.getAccessToken();
+  if (!accessToken) throw new Error('Not authenticated');
   return {
     apikey: CONFIG.supabaseAnonKey,
-    Authorization: 'Bearer ' + CONFIG.supabaseAnonKey,
+    Authorization: 'Bearer ' + accessToken,
     'Content-Type': 'application/json',
     Prefer: 'return=representation',
     ...extra,
@@ -180,7 +199,7 @@ function getRemoteBaseUrl() {
 
 async function fetchRemoteRow() {
   const url = getRemoteBaseUrl() + '?id=eq.' + encodeURIComponent(CONFIG.documentId || DOCUMENT_ID) + '&select=*';
-  const response = await fetch(url, { headers: getRemoteHeaders() });
+  const response = await fetch(url, { headers: await getRemoteHeaders() });
   if (!response.ok) throw new Error('Remote load failed: ' + response.status);
   const rows = await response.json();
   return rows[0] || null;
@@ -196,7 +215,7 @@ async function saveRemoteData(data) {
   const url = getRemoteBaseUrl() + '?id=eq.' + encodeURIComponent(payload.id);
   const response = await fetch(url, {
     method: 'POST',
-    headers: getRemoteHeaders({ Prefer: 'resolution=merge-duplicates,return=representation' }),
+    headers: await getRemoteHeaders({ Prefer: 'resolution=merge-duplicates,return=representation' }),
     body: JSON.stringify(payload),
   });
   if (!response.ok) throw new Error('Remote save failed: ' + response.status);

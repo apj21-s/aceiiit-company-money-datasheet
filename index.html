@@ -7,7 +7,24 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="page">
+  <section id="auth-shell" class="auth-shell">
+    <div class="auth-card">
+      <p class="eyebrow auth-eyebrow">Restricted Access</p>
+      <h2 class="auth-title">ACE-IIIT Team Sign In</h2>
+      <p class="auth-copy">Only the approved accounts for Priyanshu, Uman, and Arkaprava can open and edit this sheet.</p>
+      <form id="login-form" class="auth-form">
+        <label class="auth-label" for="login-email">Email</label>
+        <input id="login-email" class="text-input auth-input" type="email" autocomplete="email" placeholder="name@example.com" required />
+        <label class="auth-label" for="login-password">Password</label>
+        <input id="login-password" class="text-input auth-input" type="password" autocomplete="current-password" placeholder="Password" required />
+        <button type="submit" class="btn-outline auth-submit">Sign In</button>
+      </form>
+      <p id="auth-message" class="auth-message">Sign in with an approved team account.</p>
+      <p id="auth-allowed" class="auth-allowed"></p>
+    </div>
+  </section>
+
+  <div id="app-shell" class="page page-hidden">
     <header class="header">
       <div class="header-inner">
         <div>
@@ -16,6 +33,15 @@
           <p class="subtitle">Shared online mode is supported through Supabase so everyone can use the same live sheet.</p>
         </div>
         <div class="header-actions">
+          <div class="user-panel">
+            <span id="user-email" class="user-email"></span>
+            <button class="btn-outline small" data-action="sign-out">Sign Out</button>
+          </div>
+          <div class="audit-panel">
+            <span class="audit-title">Last Manual Update</span>
+            <span id="audit-by" class="audit-line">Waiting for sheet data...</span>
+            <span id="audit-what" class="audit-line">Section: Not recorded yet</span>
+          </div>
           <div class="sync-panel">
             <span id="sync-source" class="sync-badge sync-loading">Loading</span>
             <span id="sync-note" class="sync-note">Checking storage mode...</span>
@@ -169,11 +195,13 @@
     </section>
 
     <footer class="footer">
-      <span>For shared online use, add your Supabase details in config.js and deploy to GitHub Pages.</span>
+      <span>Public page, private data: only approved team logins can access this datasheet.</span>
     </footer>
   </div>
 
   <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="auth.js"></script>
   <script src="data.js"></script>
   <script src="app.js"></script>
 </body>

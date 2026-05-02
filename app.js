@@ -7,6 +7,9 @@ let saveTimer = null;
 let pollTimer = null;
 let isSaving = false;
 let suspendRemoteRefreshUntil = 0;
+let isAppReady = false;
+let activeUserEmail = '';
+let activeUserName = '';
 
 const fmt = value => 'Rs ' + (Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -22,12 +25,7 @@ function getPersonName(personId) {
 }
 
 function personInitials(name) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0].toUpperCase())
-    .join('') || 'NA';
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join('') || 'NA';
 }
 
 function personColorClass(index) {
@@ -40,6 +38,18 @@ function personOptions(selectedId) {
   )).join('');
 }
 
+function showLogin(message) {
+  $('auth-shell').classList.remove('auth-hidden');
+  $('app-shell').classList.add('page-hidden');
+  $('auth-message').textContent = message || 'Sign in with an approved team account.';
+}
+
+function showApp(email) {
+  $('auth-shell').classList.add('auth-hidden');
+  $('app-shell').classList.remove('page-hidden');
+  $('user-email').textContent = email || '';
+}
+
 function setSyncStatus(mode, message) {
   currentSource = mode || currentSource;
   const sourceEl = $('sync-source');
@@ -48,7 +58,7 @@ function setSyncStatus(mode, message) {
 
   const labelMap = {
     loading: 'Loading',
-    remote: 'Shared Cloud Mode',
+    remote: 'Protected Cloud Mode',
     local: 'Browser Only Mode',
     'local-fallback': 'Fallback Local Mode',
     saving: 'Saving',
@@ -66,9 +76,58 @@ function formatTimestamp(value) {
 }
 
 function updateSyncMeta() {
-  const metaEl = $('sync-meta');
-  if (!metaEl) return;
-  metaEl.textContent = lastUpdatedAt ? 'Last synced: ' + formatTimestamp(lastUpdatedAt) : 'Changes save automatically';
+  $('sync-meta').textContent = lastUpdatedAt ? 'Last synced: ' + formatTimestamp(lastUpdatedAt) : 'Changes save automatically';
+}
+
+function prettifyField(field) {
+  const map = {
+    name: 'Name',
+    price: 'Price',
+    qty: 'Quantity',
+    item: 'Item',
+    list: 'List Price',
+    discount: 'Discount',
+    amount: 'Amount',
+    by: 'Assigned Person',
+    done: 'Status',
+    notes: 'Notes',
+    date: 'Date',
+    share: 'Share Percentage',
+  };
+  return map[field] || field;
+}
+
+function prettifySection(section) {
+  const map = {
+    people: 'Master People Table',
+    streams: 'Revenue Streams',
+    discounts: 'Discount Reference',
+    expenses: 'Investments / Expenses',
+    withdrawals: 'Withdrawals',
+    reset: 'Full Sheet Reset',
+  };
+  return map[section] || section;
+}
+
+function updateAuditPanel() {
+  const meta = state.meta || {};
+  const byText = meta.lastUpdatedBy
+    ? 'By: ' + meta.lastUpdatedBy + (meta.lastUpdatedAt ? ' on ' + formatTimestamp(meta.lastUpdatedAt) : '')
+    : 'No manual edit recorded yet';
+  const whatText = meta.lastUpdatedSection
+    ? 'Section: ' + prettifySection(meta.lastUpdatedSection) + (meta.lastUpdatedField ? ' | Field: ' + prettifyField(meta.lastUpdatedField) : '')
+    : 'Section: Not recorded yet';
+  $('audit-by').textContent = byText;
+  $('audit-what').textContent = whatText;
+}
+
+function markManualUpdate(section, field) {
+  state.meta = state.meta || {};
+  state.meta.lastUpdatedBy = activeUserName || activeUserEmail || 'Approved User';
+  state.meta.lastUpdatedEmail = activeUserEmail || '';
+  state.meta.lastUpdatedSection = section || '';
+  state.meta.lastUpdatedField = field || '';
+  state.meta.lastUpdatedAt = new Date().toISOString();
 }
 
 function ensureShares() {
@@ -86,16 +145,8 @@ function ensureShares() {
 
 function compute() {
   ensureShares();
-
   const people = getPeople();
-  const totals = {
-    gross: 0,
-    expenses: 0,
-    withdrawals: 0,
-    shareByPerson: {},
-    expenseByPerson: {},
-    withdrawalByPerson: {},
-  };
+  const totals = { gross: 0, expenses: 0, withdrawals: 0, shareByPerson: {}, expenseByPerson: {}, withdrawalByPerson: {} };
 
   people.forEach(person => {
     totals.shareByPerson[person.id] = 0;
@@ -121,23 +172,19 @@ function compute() {
     if (withdrawal.by in totals.withdrawalByPerson) totals.withdrawalByPerson[withdrawal.by] += Number(withdrawal.amount) || 0;
   });
 
-  const peopleSummary = people.map((person, index) => {
-    const share = totals.shareByPerson[person.id] || 0;
-    const expense = totals.expenseByPerson[person.id] || 0;
-    const withdrawn = totals.withdrawalByPerson[person.id] || 0;
-    return {
+  return {
+    totals,
+    peopleSummary: people.map((person, index) => ({
       id: person.id,
       name: person.name,
       avatar: personInitials(person.name),
       colorClass: personColorClass(index),
-      share,
-      expense,
-      withdrawn,
-      net: share - withdrawn,
-    };
-  });
-
-  return { totals, peopleSummary };
+      share: totals.shareByPerson[person.id] || 0,
+      expense: totals.expenseByPerson[person.id] || 0,
+      withdrawn: totals.withdrawalByPerson[person.id] || 0,
+      net: (totals.shareByPerson[person.id] || 0) - (totals.withdrawalByPerson[person.id] || 0),
+    })),
+  };
 }
 
 function renderMetrics(summary) {
@@ -162,18 +209,11 @@ function renderMetrics(summary) {
 function renderPeopleTable(summary) {
   $('people-body').innerHTML = getPeople().map((person, index) => `
     <tr>
-      <td>
-        <div class="person-cell">
-          <span class="avatar av-${personColorClass(index)}">${esc(personInitials(person.name))}</span>
-          <input class="text-input" type="text" value="${esc(person.name)}" data-table="people" data-id="${person.id}" data-field="name" placeholder="Person name" />
-        </div>
-      </td>
+      <td><div class="person-cell"><span class="avatar av-${personColorClass(index)}">${esc(personInitials(person.name))}</span><input class="text-input" type="text" value="${esc(person.name)}" data-table="people" data-id="${person.id}" data-field="name" placeholder="Person name" /></div></td>
       <td class="num">${fmt(summary.totals.shareByPerson[person.id] || 0)}</td>
       <td class="num">${fmt(summary.totals.expenseByPerson[person.id] || 0)}</td>
       <td class="num">${fmt(summary.totals.withdrawalByPerson[person.id] || 0)}</td>
-      <td class="row-actions">
-        <button class="icon-btn" data-action="delete-person" data-id="${person.id}" ${getPeople().length <= 1 ? 'disabled' : ''}>Delete</button>
-      </td>
+      <td class="row-actions"><button class="icon-btn" data-action="delete-person" data-id="${person.id}" ${getPeople().length <= 1 ? 'disabled' : ''}>Delete</button></td>
     </tr>
   `).join('');
 }
@@ -204,13 +244,7 @@ function renderStreams(summary) {
         <td class="num"><input type="number" value="${Number(stream.price) || 0}" min="0" step="0.01" data-table="streams" data-id="${stream.id}" data-field="price" /></td>
         <td class="num"><input type="number" class="small-input" value="${Number(stream.qty) || 0}" min="0" step="1" data-table="streams" data-id="${stream.id}" data-field="qty" /></td>
         <td class="num">${fmt(gross)}</td>
-        ${people.map(person => `
-          <td class="num">
-            <input type="number" class="small-input" min="0" max="100" step="0.01"
-              value="${Number(stream.shares[person.id]) || 0}"
-              data-table="streams" data-id="${stream.id}" data-share-person="${person.id}" />
-          </td>
-        `).join('')}
+        ${people.map(person => `<td class="num"><input type="number" class="small-input" min="0" max="100" step="0.01" value="${Number(stream.shares[person.id]) || 0}" data-table="streams" data-id="${stream.id}" data-share-person="${person.id}" /></td>`).join('')}
         <td class="num ${warnClass}">${totalPct.toFixed(2)}%</td>
         ${people.map(person => `<td class="num">${fmt(gross * ((Number(stream.shares[person.id]) || 0) / 100))}</td>`).join('')}
         <td class="row-actions"><button class="icon-btn" data-action="delete-stream" data-id="${stream.id}">Delete</button></td>
@@ -218,13 +252,12 @@ function renderStreams(summary) {
     `;
   }).join('');
 
-  const totalShareAmounts = people.map(person => `<td class="num">${fmt(summary.totals.shareByPerson[person.id] || 0)}</td>`).join('');
   $('stream-foot').innerHTML = `
     <tr>
       <td colspan="3">Total</td>
       <td class="num">${fmt(summary.totals.gross)}</td>
       <td colspan="${people.length + 1}"></td>
-      ${totalShareAmounts}
+      ${people.map(person => `<td class="num">${fmt(summary.totals.shareByPerson[person.id] || 0)}</td>`).join('')}
       <td></td>
     </tr>
   `;
@@ -250,15 +283,7 @@ function renderDiscounts() {
     return acc;
   }, { list: 0, discount: 0 });
 
-  $('discount-foot').innerHTML = `
-    <tr>
-      <td>Total</td>
-      <td class="num">${fmt(totals.list)}</td>
-      <td class="num">${fmt(totals.discount)}</td>
-      <td class="num">${fmt(totals.list - totals.discount)}</td>
-      <td></td>
-    </tr>
-  `;
+  $('discount-foot').innerHTML = `<tr><td>Total</td><td class="num">${fmt(totals.list)}</td><td class="num">${fmt(totals.discount)}</td><td class="num">${fmt(totals.list - totals.discount)}</td><td></td></tr>`;
 }
 
 function renderExpenses(summary) {
@@ -266,27 +291,14 @@ function renderExpenses(summary) {
     <tr>
       <td><input class="text-input" type="text" value="${esc(expense.name)}" data-table="expenses" data-id="${expense.id}" data-field="name" placeholder="Expense name" /></td>
       <td class="num"><input type="number" value="${Number(expense.amount) || 0}" min="0" step="0.01" data-table="expenses" data-id="${expense.id}" data-field="amount" /></td>
-      <td>
-        <select data-table="expenses" data-id="${expense.id}" data-field="by">${personOptions(expense.by)}</select>
-      </td>
-      <td>
-        <select data-table="expenses" data-id="${expense.id}" data-field="done">
-          <option value="true" ${expense.done ? 'selected' : ''}>Done</option>
-          <option value="false" ${expense.done ? '' : 'selected'}>Pending</option>
-        </select>
-      </td>
+      <td><select data-table="expenses" data-id="${expense.id}" data-field="by">${personOptions(expense.by)}</select></td>
+      <td><select data-table="expenses" data-id="${expense.id}" data-field="done"><option value="true" ${expense.done ? 'selected' : ''}>Done</option><option value="false" ${expense.done ? '' : 'selected'}>Pending</option></select></td>
       <td><input class="text-input" type="text" value="${esc(expense.notes)}" data-table="expenses" data-id="${expense.id}" data-field="notes" placeholder="Notes" /></td>
       <td class="row-actions"><button class="icon-btn" data-action="delete-expense" data-id="${expense.id}">Delete</button></td>
     </tr>
   `).join('');
 
-  $('expense-foot').innerHTML = `
-    <tr>
-      <td>Total</td>
-      <td class="num">${fmt(summary.totals.expenses)}</td>
-      <td colspan="4"></td>
-    </tr>
-  `;
+  $('expense-foot').innerHTML = `<tr><td>Total</td><td class="num">${fmt(summary.totals.expenses)}</td><td colspan="4"></td></tr>`;
 }
 
 function renderWithdrawals(summary) {
@@ -294,31 +306,18 @@ function renderWithdrawals(summary) {
     <tr>
       <td><input type="date" value="${esc(withdrawal.date)}" data-table="withdrawals" data-id="${withdrawal.id}" data-field="date" /></td>
       <td class="num"><input type="number" value="${Number(withdrawal.amount) || 0}" min="0" step="0.01" data-table="withdrawals" data-id="${withdrawal.id}" data-field="amount" /></td>
-      <td>
-        <select data-table="withdrawals" data-id="${withdrawal.id}" data-field="by">${personOptions(withdrawal.by)}</select>
-      </td>
+      <td><select data-table="withdrawals" data-id="${withdrawal.id}" data-field="by">${personOptions(withdrawal.by)}</select></td>
       <td class="row-actions"><button class="icon-btn" data-action="delete-withdrawal" data-id="${withdrawal.id}">Delete</button></td>
     </tr>
   `).join('');
 
-  $('wd-foot').innerHTML = `
-    <tr>
-      <td>Total withdrawals</td>
-      <td class="num">${fmt(summary.totals.withdrawals)}</td>
-      <td colspan="2"></td>
-    </tr>
-  `;
+  $('wd-foot').innerHTML = `<tr><td>Total withdrawals</td><td class="num">${fmt(summary.totals.withdrawals)}</td><td colspan="2"></td></tr>`;
 }
 
 function renderSettlement(summary) {
   $('settle-body').innerHTML = summary.peopleSummary.map(person => `
     <tr>
-      <td>
-        <div class="person-cell">
-          <span class="avatar av-${person.colorClass}">${esc(person.avatar)}</span>
-          ${esc(person.name)}
-        </div>
-      </td>
+      <td><div class="person-cell"><span class="avatar av-${person.colorClass}">${esc(person.avatar)}</span>${esc(person.name)}</div></td>
       <td class="num">${fmt(person.share)}</td>
       <td class="num">${fmt(person.expense)}</td>
       <td class="num">${fmt(person.withdrawn)}</td>
@@ -338,6 +337,7 @@ function render() {
   renderWithdrawals(summary);
   renderSettlement(summary);
   updateSyncMeta();
+  updateAuditPanel();
 }
 
 function parseValue(field, value) {
@@ -347,16 +347,16 @@ function parseValue(field, value) {
 }
 
 function scheduleSave() {
+  if (!isAppReady) return;
   if (saveTimer) clearTimeout(saveTimer);
-  setSyncStatus('saving', 'Saving shared changes...');
+  setSyncStatus('saving', 'Saving protected shared changes...');
   saveTimer = setTimeout(async () => {
     isSaving = true;
     suspendRemoteRefreshUntil = Date.now() + 15000;
     const result = await dataApi.saveData(state);
     isSaving = false;
-    currentSource = result.source;
     lastUpdatedAt = result.updatedAt || lastUpdatedAt;
-    setSyncStatus(result.source, result.source === 'remote' ? 'Everyone sees the same live sheet.' : 'Cloud setup missing or unreachable. Using local copy.');
+    setSyncStatus(result.source, result.source === 'remote' ? 'Only signed-in approved users can access this live sheet.' : 'Authenticated cloud save failed. Local fallback is active.');
     updateSyncMeta();
   }, 350);
 }
@@ -365,6 +365,7 @@ function updateRecord(table, id, field, value) {
   const record = state[table].find(item => item.id === id);
   if (!record) return;
   record[field] = parseValue(field, value);
+  markManualUpdate(table, field);
   render();
   scheduleSave();
 }
@@ -373,6 +374,7 @@ function updateShare(streamId, personId, value) {
   const stream = state.streams.find(item => item.id === streamId);
   if (!stream) return;
   stream.shares[personId] = Number(value) || 0;
+  markManualUpdate('streams', 'share');
   render();
   scheduleSave();
 }
@@ -384,6 +386,7 @@ function deletePerson(personId) {
   state.expenses.forEach(expense => { if (expense.by === personId) expense.by = fallbackId; });
   state.withdrawals.forEach(withdrawal => { if (withdrawal.by === personId) withdrawal.by = fallbackId; });
   state.streams.forEach(stream => { delete stream.shares[personId]; });
+  markManualUpdate('people', 'name');
   render();
   scheduleSave();
 }
@@ -395,6 +398,7 @@ function addRow(type) {
   if (type === 'discounts') state.discounts.push({ id: 'd_' + Date.now(), item: '', list: 0, discount: 0 });
   if (type === 'expenses') state.expenses.push({ id: 'e_' + Date.now(), name: '', amount: 0, by: firstPersonId, done: false, notes: '' });
   if (type === 'withdrawals') state.withdrawals.push({ id: 'w_' + Date.now(), date: new Date().toISOString().slice(0, 10), amount: 0, by: firstPersonId });
+  markManualUpdate(type, 'name');
   render();
   scheduleSave();
 }
@@ -405,11 +409,13 @@ function deleteRow(action, id) {
   if (action === 'delete-discount') state.discounts = state.discounts.filter(item => item.id !== id);
   if (action === 'delete-expense') state.expenses = state.expenses.filter(item => item.id !== id);
   if (action === 'delete-withdrawal') state.withdrawals = state.withdrawals.filter(item => item.id !== id);
+  markManualUpdate(action.replace('delete-', ''), 'name');
   render();
   scheduleSave();
 }
 
 function handleFieldEdit(event) {
+  if (!isAppReady) return;
   const target = event.target;
   const table = target.dataset.table;
   const id = target.dataset.id;
@@ -426,7 +432,7 @@ document.addEventListener('focusout', event => {
   handleFieldEdit(event);
 });
 
-document.addEventListener('click', event => {
+document.addEventListener('click', async event => {
   const button = event.target.closest('[data-action]');
   if (!button) return;
   const action = button.dataset.action;
@@ -435,6 +441,7 @@ document.addEventListener('click', event => {
   if (action === 'export') exportCSV();
   else if (action === 'reset') resetAll();
   else if (action === 'sync-now') refreshFromRemote(true);
+  else if (action === 'sign-out') await authApi.signOut();
   else if (action.startsWith('add-')) addRow(action.replace('add-', ''));
   else deleteRow(action, id);
 });
@@ -453,14 +460,7 @@ function exportCSV() {
   rows.push(['Stream', 'Price', 'Qty', 'Gross', ...people.map(person => `${person.name} %`), ...people.map(person => `${person.name} Amount`)]);
   state.streams.forEach(stream => {
     const gross = (Number(stream.price) || 0) * (Number(stream.qty) || 0);
-    rows.push([
-      stream.name,
-      Number(stream.price) || 0,
-      Number(stream.qty) || 0,
-      gross.toFixed(2),
-      ...people.map(person => Number(stream.shares[person.id]) || 0),
-      ...people.map(person => (gross * ((Number(stream.shares[person.id]) || 0) / 100)).toFixed(2)),
-    ]);
+    rows.push([stream.name, Number(stream.price) || 0, Number(stream.qty) || 0, gross.toFixed(2), ...people.map(person => Number(stream.shares[person.id]) || 0), ...people.map(person => (gross * ((Number(stream.shares[person.id]) || 0) / 100)).toFixed(2))]);
   });
   rows.push([]);
   rows.push(['DISCOUNTS']);
@@ -486,17 +486,19 @@ function exportCSV() {
 }
 
 async function resetAll() {
-  if (!confirm('Reset all values to defaults? This clears the shared sheet too.')) return;
-  setSyncStatus('saving', 'Resetting sheet...');
-  const result = await dataApi.resetData();
+  if (!confirm('Reset all values to defaults? This clears the protected shared sheet too.')) return;
+  setSyncStatus('saving', 'Resetting protected shared sheet...');
+  state = dataApi.normalizeData(dataApi.DEFAULT_DATA);
+  markManualUpdate('reset', 'reset');
+  const result = await dataApi.saveData(state);
   state = result.data;
   lastUpdatedAt = result.updatedAt || null;
-  setSyncStatus(result.source, result.source === 'remote' ? 'Shared sheet reset successfully.' : 'Reset locally. Cloud setup missing or unreachable.');
+  setSyncStatus(result.source, result.source === 'remote' ? 'Protected shared sheet reset successfully.' : 'Reset locally. Cloud authentication or access failed.');
   render();
 }
 
 async function refreshFromRemote(force) {
-  if (!dataApi.hasRemoteConfig()) return;
+  if (!isAppReady || !dataApi.hasRemoteConfig()) return;
   if (!force && (isSaving || Date.now() < suspendRemoteRefreshUntil)) return;
   try {
     const result = await dataApi.loadData();
@@ -504,7 +506,7 @@ async function refreshFromRemote(force) {
       state = result.data;
       lastUpdatedAt = result.updatedAt;
       render();
-      setSyncStatus('remote', force ? 'Shared data refreshed.' : 'Received latest shared updates.');
+      setSyncStatus('remote', force ? 'Protected shared data refreshed.' : 'Received latest updates from another approved user.');
     }
   } catch (error) {
     console.error(error);
@@ -517,25 +519,72 @@ function startPolling() {
   pollTimer = setInterval(() => refreshFromRemote(false), 12000);
 }
 
-async function init() {
-  setSyncStatus('loading', 'Loading datasheet...');
+async function bootAuthorizedApp(email) {
+  activeUserEmail = email || '';
+  activeUserName = authApi.getAllowedName(activeUserEmail) || activeUserEmail;
+  showApp(activeUserEmail);
+  setSyncStatus('loading', 'Loading protected datasheet...');
   const result = await dataApi.loadData();
   state = result.data;
   lastUpdatedAt = result.updatedAt || null;
   render();
+  isAppReady = true;
 
   if (result.source === 'remote') {
-    setSyncStatus('remote', 'Everyone using this site sees the same shared data.');
+    setSyncStatus('remote', 'Only approved signed-in users can access this live sheet.');
   } else if (result.source === 'local-fallback') {
-    setSyncStatus('local-fallback', 'Supabase is not connected yet or is unreachable. Currently saving only in this browser.');
+    setSyncStatus('local-fallback', 'Signed in, but Supabase data access failed. Local fallback is active.');
   } else {
-    setSyncStatus('local', 'Connect Supabase in config.js to make this shared for everyone.');
+    setSyncStatus('local', 'Signed in, but remote config is incomplete so data is local only.');
   }
 
   startPolling();
 }
 
-window.exportCSV = exportCSV;
-window.resetAll = resetAll;
+async function handleAuthState(detail) {
+  const session = detail && detail.session;
+  const authorized = detail && detail.authorized;
+
+  if (!session || !authorized) {
+    isAppReady = false;
+    activeUserEmail = '';
+    if (pollTimer) clearInterval(pollTimer);
+    showLogin(detail && detail.reason === 'unauthorized'
+      ? 'This account is not approved. Use one of the three allowed team logins.'
+      : 'Sign in with an approved team account to access the datasheet.');
+    return;
+  }
+
+  if (session.user && session.user.email) {
+    $('login-password').value = '';
+    await bootAuthorizedApp(session.user.email);
+  }
+}
+
+function setupLoginForm() {
+  $('auth-allowed').textContent = 'Allowed team accounts: ' + authApi.getAllowedDisplay();
+  $('login-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const email = $('login-email').value.trim();
+    const password = $('login-password').value;
+    $('auth-message').textContent = 'Signing in...';
+    const { error } = await authApi.signInWithPassword(email, password);
+    if (error) {
+      $('auth-message').textContent = error.message || 'Could not sign in.';
+    } else {
+      $('auth-message').textContent = 'Sign-in successful. Loading datasheet...';
+    }
+  });
+}
+
+window.addEventListener('auth-state-changed', event => {
+  handleAuthState(event.detail);
+});
+
+async function init() {
+  setupLoginForm();
+  showLogin('Checking session...');
+  await authApi.init();
+}
 
 init();

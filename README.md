@@ -1,27 +1,31 @@
 # ACE-IIIT Company Money Datasheet
 
-This project supports two modes:
+This version uses:
 
-1. Local browser mode
-2. Shared online mode through Supabase
+1. GitHub Pages for hosting
+2. Supabase Auth for login
+3. Supabase Postgres for shared sheet data
+
+## Access Model
+
+The page URL can stay public, but the data is protected:
+
+- visitors first see a login screen
+- only approved team accounts can sign in
+- database access is enforced by Supabase RLS
 
 ## Files
 
 - `index.html`
 - `style.css`
-- `app.js`
-- `data.js`
 - `config.js`
+- `auth.js`
+- `data.js`
+- `app.js`
 
-## Make It Shared For Everyone
+## 1. Create the data table
 
-This app is ready for GitHub Pages. To make data shared for all users, connect it to Supabase.
-
-### 1. Create a Supabase project
-
-Create a project in Supabase and open the SQL Editor.
-
-Run this SQL:
+Run this in Supabase SQL Editor:
 
 ```sql
 create table if not exists public.company_datasheet (
@@ -31,65 +35,113 @@ create table if not exists public.company_datasheet (
 );
 
 alter table public.company_datasheet enable row level security;
-
-create policy "allow read for anon"
-on public.company_datasheet
-for select
-to anon
-using (true);
-
-create policy "allow write for anon"
-on public.company_datasheet
-for insert
-to anon
-with check (true);
-
-create policy "allow update for anon"
-on public.company_datasheet
-for update
-to anon
-using (true)
-with check (true);
 ```
 
-### 2. Get your Supabase values
+## 2. Create restricted RLS policies
 
-From Supabase project settings, copy:
+Replace the three emails below with the real team emails.
 
-- Project URL
-- Anon public key
+This uses the JWT email claim pattern recommended by Supabase docs through `auth.jwt() ->> 'email'`.
 
-### 3. Fill in `config.js`
+```sql
+drop policy if exists "company_datasheet_select_allowed" on public.company_datasheet;
+drop policy if exists "company_datasheet_insert_allowed" on public.company_datasheet;
+drop policy if exists "company_datasheet_update_allowed" on public.company_datasheet;
 
-Edit `config.js`:
+create policy "company_datasheet_select_allowed"
+on public.company_datasheet
+for select
+to authenticated
+using (
+  (auth.jwt() ->> 'email') in (
+    'priyanshu@example.com',
+    'uman@example.com',
+    'arkaprava@example.com'
+  )
+);
+
+create policy "company_datasheet_insert_allowed"
+on public.company_datasheet
+for insert
+to authenticated
+with check (
+  (auth.jwt() ->> 'email') in (
+    'priyanshu@example.com',
+    'uman@example.com',
+    'arkaprava@example.com'
+  )
+);
+
+create policy "company_datasheet_update_allowed"
+on public.company_datasheet
+for update
+to authenticated
+using (
+  (auth.jwt() ->> 'email') in (
+    'priyanshu@example.com',
+    'uman@example.com',
+    'arkaprava@example.com'
+  )
+)
+with check (
+  (auth.jwt() ->> 'email') in (
+    'priyanshu@example.com',
+    'uman@example.com',
+    'arkaprava@example.com'
+  )
+);
+```
+
+## 3. Create the three auth users
+
+In Supabase:
+
+1. Open `Authentication`
+2. Open `Users`
+3. Create users for:
+   - Priyanshu
+   - Uman
+   - Arkaprava
+4. Set their email addresses and passwords
+
+Recommended:
+
+- use email + password auth
+- disable open public sign-up if you do not want anyone else creating accounts
+
+## 4. Update `config.js`
+
+Edit `config.js` and replace the placeholder emails with the real ones:
 
 ```js
 window.APP_CONFIG = {
-  supabaseUrl: 'https://YOUR-PROJECT.supabase.co',
-  supabaseAnonKey: 'YOUR_ANON_PUBLIC_KEY',
+  supabaseUrl: 'https://aosnjbzzsynbbopcbmnn.supabase.co',
+  supabaseAnonKey: 'YOUR_PUBLISHABLE_KEY',
   tableName: 'company_datasheet',
   documentId: 'main',
+  allowedUsers: [
+    { name: 'Priyanshu', email: 'real-priyanshu-email@example.com' },
+    { name: 'Uman', email: 'real-uman-email@example.com' },
+    { name: 'Arkaprava', email: 'real-arkaprava-email@example.com' },
+  ],
 };
 ```
 
-### 4. Push to GitHub Pages
+## 5. Push to GitHub Pages
 
-Commit and push the project. GitHub Pages hosts the frontend, and Supabase stores the shared sheet data.
+Once deployed:
 
-## How It Works
+- anyone can open the page URL
+- only logged-in approved users can access the sheet
+- all shared reads and writes happen with the signed-in user token
 
-- Everyone opening the same GitHub Pages URL reads the same shared JSON document.
-- Edits save automatically to Supabase.
-- The app periodically refreshes to catch updates from others.
-- If Supabase is missing or temporarily unavailable, the app falls back to browser storage.
+## Important Notes
 
-## Important Note
-
-This version stores the full sheet as one JSON document. That is simple and good for a small team, but if multiple people edit at the same time, the latest save wins.
-
-Future upgrades can be:
-
-1. Separate row-level tables in Supabase
-2. Team login/auth
-3. Edit history / audit log
-4. Realtime subscriptions instead of polling
+- If the emails in `config.js` and the RLS policy do not match, access will fail.
+- The current app stores the sheet as one shared JSON document, so if two approved users save at exactly the same time, the latest save wins.
+- This is real protection at the database layer, not just frontend hiding.
+- The sheet now also stores manual audit metadata inside the shared JSON:
+  - who last updated it
+  - when they updated it
+  - which section was updated most recently
+  - which field was touched most recently
