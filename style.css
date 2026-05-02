@@ -177,17 +177,14 @@ body {
   }
 }
 
-.money-note {
-  animation-name: moneyBlastLeft;
-}
-
 .note-b,
 .note-e,
 .note-h,
 .note-l {
   left: auto;
-  right: -14vw;
-  animation-name: moneyBlastRight;
+  right: -12%;
+  transform-origin: center;
+  animation-name: moneyBlastMirror;
 }
 
 .note-c,
@@ -195,8 +192,8 @@ body {
 .note-j,
 .note-n {
   left: 50%;
-  top: -14vh;
-  animation-name: moneyBlastTop;
+  transform-origin: center;
+  animation-name: moneyBlastTopFlow;
 }
 
 .note-d,
@@ -205,40 +202,12 @@ body {
 .note-o {
   left: 50%;
   top: auto;
-  bottom: -16vh;
-  animation-name: moneyBlastBottom;
+  bottom: -12%;
+  transform-origin: center;
+  animation-name: moneyBlastBottomFlow;
 }
 
-@keyframes moneyBlastLeft {
-  0% {
-    transform: translate(-16vw, -50%) rotate(-24deg) scale(0.68);
-    opacity: 0;
-    filter: blur(1px);
-  }
-  8% {
-    opacity: 1;
-    filter: blur(0);
-  }
-  26% {
-    transform: translate(24vw, -70%) rotate(14deg) scale(1.06);
-    opacity: 1;
-  }
-  54% {
-    transform: translate(58vw, -38%) rotate(-10deg) scale(0.98);
-    opacity: 1;
-  }
-  78% {
-    transform: translate(88vw, -62%) rotate(18deg) scale(0.9);
-    opacity: 0.88;
-  }
-  100% {
-    transform: translate(124vw, -48%) rotate(-20deg) scale(0.72);
-    opacity: 0;
-    filter: blur(1px);
-  }
-}
-
-@keyframes moneyBlastRight {
+@keyframes moneyBlastMirror {
   0% {
     transform: translate(16vw, -50%) rotate(24deg) scale(0.68);
     opacity: 0;
@@ -267,9 +236,9 @@ body {
   }
 }
 
-@keyframes moneyBlastTop {
+@keyframes moneyBlastTopFlow {
   0% {
-    transform: translate(-50%, -16vh) rotate(-18deg) scale(0.66);
+    transform: translate(-50%, -16vh) rotate(-20deg) scale(0.68);
     opacity: 0;
     filter: blur(1px);
   }
@@ -278,27 +247,27 @@ body {
     filter: blur(0);
   }
   26% {
-    transform: translate(-10vw, 18vh) rotate(16deg) scale(1.02);
+    transform: translate(18vw, 18vh) rotate(14deg) scale(1.06);
     opacity: 1;
   }
   54% {
-    transform: translate(18vw, 46vh) rotate(-10deg) scale(0.98);
+    transform: translate(-12vw, 46vh) rotate(-10deg) scale(0.98);
     opacity: 1;
   }
   78% {
-    transform: translate(-22vw, 74vh) rotate(18deg) scale(0.88);
+    transform: translate(16vw, 74vh) rotate(18deg) scale(0.9);
     opacity: 0.88;
   }
   100% {
-    transform: translate(12vw, 116vh) rotate(-22deg) scale(0.72);
+    transform: translate(-8vw, 116vh) rotate(-20deg) scale(0.72);
     opacity: 0;
     filter: blur(1px);
   }
 }
 
-@keyframes moneyBlastBottom {
+@keyframes moneyBlastBottomFlow {
   0% {
-    transform: translate(-50%, 16vh) rotate(18deg) scale(0.66);
+    transform: translate(-50%, 16vh) rotate(20deg) scale(0.68);
     opacity: 0;
     filter: blur(1px);
   }
@@ -307,19 +276,19 @@ body {
     filter: blur(0);
   }
   26% {
-    transform: translate(12vw, -18vh) rotate(-14deg) scale(1.02);
+    transform: translate(-18vw, -18vh) rotate(-14deg) scale(1.06);
     opacity: 1;
   }
   54% {
-    transform: translate(-18vw, -46vh) rotate(10deg) scale(0.98);
+    transform: translate(12vw, -46vh) rotate(10deg) scale(0.98);
     opacity: 1;
   }
   78% {
-    transform: translate(24vw, -74vh) rotate(-18deg) scale(0.88);
+    transform: translate(-16vw, -74vh) rotate(-18deg) scale(0.9);
     opacity: 0.88;
   }
   100% {
-    transform: translate(-10vw, -116vh) rotate(22deg) scale(0.72);
+    transform: translate(8vw, -116vh) rotate(20deg) scale(0.72);
     opacity: 0;
     filter: blur(1px);
   }
