@@ -135,20 +135,26 @@ function prettifySection(section) {
   return map[section] || section;
 }
 
+function isTrackedSection(section) {
+  return ['people', 'streams', 'discounts', 'expenses', 'withdrawals', 'reset'].includes(section);
+}
+
 function updateAuditPanel() {
   const meta = state.meta || {};
+  const validSection = isTrackedSection(meta.lastUpdatedSection) ? meta.lastUpdatedSection : '';
   const byText = meta.lastUpdatedBy
     ? 'By: ' + meta.lastUpdatedBy + (meta.lastUpdatedAt ? ' on ' + formatTimestamp(meta.lastUpdatedAt) : '')
     : 'No manual edit recorded yet';
-  const whatText = meta.lastUpdatedSection
-    ? 'Section: ' + prettifySection(meta.lastUpdatedSection) + (meta.lastUpdatedField ? ' | Field: ' + prettifyField(meta.lastUpdatedField) : '')
+  const whatText = validSection
+    ? 'Section: ' + prettifySection(validSection) + (meta.lastUpdatedField ? ' | Field: ' + prettifyField(meta.lastUpdatedField) : '')
     : 'Section: Not recorded yet';
   $('audit-by').textContent = byText;
   $('audit-what').textContent = whatText;
 }
 
 function renderHistory() {
-  const history = Array.isArray(state.meta && state.meta.editHistory) ? state.meta.editHistory : [];
+  const history = (Array.isArray(state.meta && state.meta.editHistory) ? state.meta.editHistory : [])
+    .filter(entry => isTrackedSection(entry.section));
   $('history-list').innerHTML = history.length
     ? history.map(entry => `
       <div class="history-item">

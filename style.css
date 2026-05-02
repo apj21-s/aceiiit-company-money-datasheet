@@ -39,9 +39,9 @@ body {
 .loading-overlay {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
-  gap: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background:
     radial-gradient(circle at 20% 20%, rgba(101, 196, 255, 0.16), transparent 24%),
     radial-gradient(circle at 80% 30%, rgba(93, 222, 172, 0.14), transparent 26%),
@@ -51,63 +51,56 @@ body {
 }
 
 .loading-overlay-hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
+  display: none;
 }
 
-.loading-scene {
+.loading-card {
+  width: min(420px, calc(100vw - 32px));
+  padding: 28px 24px;
+  border-radius: 26px;
+  background: rgba(245, 251, 253, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 30px 70px rgba(5, 15, 22, 0.35);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.loading-spinner {
   position: relative;
-  width: 180px;
-  height: 180px;
-  display: grid;
-  place-items: center;
+  width: 92px;
+  height: 92px;
 }
 
-.loading-orbit {
+.loading-ring {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 3px solid transparent;
 }
 
-.orbit-one {
-  animation: orbitSpin 2.6s linear infinite;
-  border-top-color: rgba(255, 255, 255, 0.75);
+.ring-a {
+  border-top-color: rgba(255, 255, 255, 0.88);
+  border-right-color: rgba(255, 255, 255, 0.24);
+  animation: orbitSpin 1.2s linear infinite;
 }
 
-.orbit-two {
-  inset: 16px;
-  animation: orbitSpinReverse 2.1s linear infinite;
-  border-right-color: rgba(93, 222, 172, 0.75);
+.ring-b {
+  inset: 12px;
+  border-left-color: rgba(93, 222, 172, 0.92);
+  border-bottom-color: rgba(101, 196, 255, 0.3);
+  animation: orbitSpinReverse 1.5s linear infinite;
 }
 
-.orbit-three {
-  inset: 34px;
-  animation: orbitPulse 1.8s ease-in-out infinite;
-  border-left-color: rgba(101, 196, 255, 0.8);
-}
-
-.loading-core {
-  width: 82px;
-  height: 82px;
+.loading-dot {
+  position: absolute;
+  inset: 28px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
-  box-shadow:
-    0 0 0 12px rgba(255, 255, 255, 0.04),
-    0 14px 32px rgba(3, 12, 18, 0.35);
-  display: grid;
-  place-items: center;
-  backdrop-filter: blur(8px);
+  background: linear-gradient(135deg, rgba(93, 222, 172, 0.95), rgba(101, 196, 255, 0.95));
+  box-shadow: 0 0 26px rgba(101, 196, 255, 0.35);
   animation: coreFloat 2.2s ease-in-out infinite;
-}
-
-.loading-core-text {
-  font-size: 1.2rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  color: #f7fbfd;
-  margin-left: 0.18em;
 }
 
 .loading-copy {
@@ -286,9 +279,14 @@ body {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
   color: #f6fbfd;
-  font-size: 22px;
-  line-height: 1;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 42px;
+  text-align: center;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .header-menu {

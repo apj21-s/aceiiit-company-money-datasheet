@@ -8,17 +8,16 @@
 </head>
 <body>
   <div id="loading-overlay" class="loading-overlay">
-    <div class="loading-scene">
-      <div class="loading-orbit orbit-one"></div>
-      <div class="loading-orbit orbit-two"></div>
-      <div class="loading-orbit orbit-three"></div>
-      <div class="loading-core">
-        <span class="loading-core-text">ACE</span>
+    <div class="loading-card">
+      <div class="loading-spinner">
+        <span class="loading-ring ring-a"></span>
+        <span class="loading-ring ring-b"></span>
+        <span class="loading-dot"></span>
       </div>
-    </div>
-    <div class="loading-copy">
-      <p id="loading-title" class="loading-title">Preparing Datasheet</p>
-      <p id="loading-message" class="loading-message">Connecting to the live workspace...</p>
+      <div class="loading-copy">
+        <p id="loading-title" class="loading-title">Preparing Datasheet</p>
+        <p id="loading-message" class="loading-message">Connecting to the live workspace...</p>
+      </div>
     </div>
   </div>
 
@@ -53,7 +52,7 @@
           <p class="subtitle">Shared online mode is supported through Supabase so everyone can use the same live sheet.</p>
         </div>
         <div class="header-menu-wrap">
-          <button class="menu-trigger" data-action="toggle-menu" aria-expanded="false" aria-controls="header-menu">...</button>
+          <button class="menu-trigger" data-action="toggle-menu" aria-expanded="false" aria-controls="header-menu" aria-label="Open menu">⋯</button>
           <div id="header-menu" class="header-menu menu-hidden">
             <div class="menu-block">
               <span class="menu-label">Account</span>
