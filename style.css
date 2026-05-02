@@ -204,6 +204,112 @@ body {
 }
 
 .loading-card {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.loading-money-scene {
+  background:
+    radial-gradient(circle at 24% 22%, rgba(255, 235, 162, 0.12), transparent 16%),
+    radial-gradient(circle at 77% 18%, rgba(255, 208, 92, 0.08), transparent 20%),
+    radial-gradient(circle at 60% 82%, rgba(98, 224, 186, 0.08), transparent 24%);
+}
+
+.money-note {
+  position: absolute;
+  top: 50%;
+  left: -12%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  height: 62px;
+  padding: 0 24px;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(249, 245, 214, 0.98), rgba(205, 225, 172, 0.98) 24%, rgba(171, 198, 130, 0.98) 52%, rgba(213, 188, 96, 0.98) 100%);
+  color: #17333e;
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  box-shadow:
+    0 18px 34px rgba(3, 10, 15, 0.26),
+    0 0 28px rgba(247, 218, 112, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(81, 92, 42, 0.18);
+  transform: translateY(-50%);
+  animation: moneyBlast 7.4s linear infinite;
+}
+
+.money-note::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(64, 91, 48, 0.16);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.12), transparent 22%, transparent 78%, rgba(255, 255, 255, 0.08)),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08), transparent 48%);
+}
+
+.money-note::after {
+  content: "₹";
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  width: auto;
+  height: auto;
+  border: 0;
+  opacity: 0.16;
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.note-a { animation-delay: 0s; top: 26%; }
+.note-b { animation-delay: 1.2s; top: 58%; }
+.note-c { animation-delay: 2.2s; top: 40%; min-width: 80px; }
+.note-d { animation-delay: 3.1s; top: 72%; }
+.note-e { animation-delay: 4.2s; top: 18%; min-width: 88px; }
+.note-f { animation-delay: 0.6s; top: 82%; min-width: 88px; }
+.note-g { animation-delay: 1.8s; top: 10%; }
+.note-h { animation-delay: 2.8s; top: 50%; min-width: 108px; }
+.note-i { animation-delay: 3.8s; top: 32%; min-width: 92px; }
+.note-j { animation-delay: 4.8s; top: 66%; }
+.note-k { animation-delay: 5.4s; top: 22%; min-width: 86px; }
+.note-l { animation-delay: 0.9s; top: 44%; min-width: 84px; }
+.note-m { animation-delay: 2.5s; top: 88%; min-width: 96px; }
+.note-n { animation-delay: 4.1s; top: 14%; min-width: 84px; }
+.note-o { animation-delay: 5.9s; top: 56%; min-width: 116px; }
+
+@keyframes moneyBlast {
+  0% {
+    transform: translate(-16vw, -50%) rotate(-24deg) scale(0.68);
+    opacity: 0;
+    filter: blur(1px);
+  }
+  8% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  26% {
+    transform: translate(24vw, -70%) rotate(14deg) scale(1.06);
+    opacity: 1;
+  }
+  54% {
+    transform: translate(58vw, -38%) rotate(-10deg) scale(0.98);
+    opacity: 1;
+  }
+  78% {
+    transform: translate(88vw, -62%) rotate(18deg) scale(0.9);
+    opacity: 0.88;
+  }
+  100% {
+    transform: translate(124vw, -48%) rotate(-20deg) scale(0.72);
+    opacity: 0;
+    filter: blur(1px);
+  }
+}
+
+.loading-card {
   width: min(680px, calc(100vw - 32px));
 }
 
