@@ -486,12 +486,11 @@ function persistRootState() {
 function scheduleSave() {
   if (!isAppReady) return;
   if (saveTimer) clearTimeout(saveTimer);
-  setSyncStatus('saving', 'Saving protected shared changes...');
+  setSyncStatus('saving', 'Syncing changes...');
   saveTimer = setTimeout(async () => {
     isSaving = true;
     suspendRemoteRefreshUntil = Date.now() + 15000;
     persistRootState();
-    showLoader('Saving Changes', 'Pushing your latest edits to the live datasheet...');
     const result = await dataApi.saveData(rootState);
     rootState = result.data;
     setCurrentYear(rootState.currentYear);
@@ -499,7 +498,6 @@ function scheduleSave() {
     lastUpdatedAt = result.updatedAt || lastUpdatedAt;
     setSyncStatus(result.source, result.source === 'remote' ? 'Only signed-in approved users can access this live sheet.' : 'Authenticated cloud save failed. Local fallback is active.');
     updateSyncMeta();
-    hideLoader();
   }, 280);
 }
 
@@ -767,7 +765,7 @@ async function refreshFromRemote(force) {
   if (!isAppReady || !dataApi.hasRemoteConfig()) return;
   if (!force && (isSaving || Date.now() < suspendRemoteRefreshUntil)) return;
   try {
-    if (force) showLoader('Refreshing Sheet', 'Checking for the latest changes from the team...');
+    if (force) setSyncStatus('saving', 'Refreshing latest shared data...');
     const result = await dataApi.loadData();
     if (result.source === 'remote' && result.updatedAt && result.updatedAt !== lastUpdatedAt) {
       rootState = result.data;
@@ -777,10 +775,9 @@ async function refreshFromRemote(force) {
       render();
       setSyncStatus('remote', force ? 'Protected shared data refreshed.' : 'Received latest updates from another approved user.');
     }
-    if (force) hideLoader();
   } catch (error) {
     console.error(error);
-    if (force) hideLoader();
+    if (force) setSyncStatus('remote', 'Could not refresh right now.');
   }
 }
 
