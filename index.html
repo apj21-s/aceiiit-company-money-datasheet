@@ -10,21 +10,40 @@
   <div id="loading-overlay" class="loading-overlay">
     <div class="loading-card">
       <div class="loading-money-scene" aria-hidden="true">
-        <span class="money-note note-a">Rs</span>
-        <span class="money-note note-b">100</span>
-        <span class="money-note note-c">Rs</span>
-        <span class="money-note note-d">500</span>
-        <span class="money-note note-e">Rs</span>
-        <span class="money-note note-f">200</span>
-        <span class="money-note note-g">Rs</span>
-        <span class="money-note note-h">2000</span>
-        <span class="money-note note-i">500</span>
-        <span class="money-note note-j">Rs</span>
-        <span class="money-note note-k">100</span>
-        <span class="money-note note-l">₹</span>
-        <span class="money-note note-m">200</span>
-        <span class="money-note note-n">₹</span>
-        <span class="money-note note-o">2000</span>
+        <div class="pot-scene">
+          <div class="hammer hammer-left">
+            <span class="hammer-handle"></span>
+            <span class="hammer-head"></span>
+          </div>
+          <div class="hammer hammer-right">
+            <span class="hammer-handle"></span>
+            <span class="hammer-head"></span>
+          </div>
+          <div class="pot-wrap">
+            <span class="pot-glow"></span>
+            <span class="pot-neck"></span>
+            <span class="pot-body"></span>
+            <span class="pot-crack crack-a"></span>
+            <span class="pot-crack crack-b"></span>
+            <span class="pot-crack crack-c"></span>
+            <span class="pot-coin stack-a"></span>
+            <span class="pot-coin stack-b"></span>
+            <span class="pot-coin stack-c"></span>
+          </div>
+          <span class="burst-note burst-note-a">Rs 500</span>
+          <span class="burst-note burst-note-b">Rs 100</span>
+          <span class="burst-note burst-note-c">Rs 2000</span>
+          <span class="burst-note burst-note-d">Rs 200</span>
+          <span class="burst-note burst-note-e">Rs</span>
+          <span class="burst-note burst-note-f">Rs 500</span>
+          <span class="burst-note burst-note-g">Rs 100</span>
+          <span class="burst-coin coin-a"></span>
+          <span class="burst-coin coin-b"></span>
+          <span class="burst-coin coin-c"></span>
+          <span class="burst-coin coin-d"></span>
+          <span class="burst-coin coin-e"></span>
+          <span class="burst-coin coin-f"></span>
+        </div>
       </div>
       <div class="loading-copy">
         <p id="loading-title" class="loading-title">Preparing Datasheet</p>
@@ -64,7 +83,7 @@
           <p class="subtitle">Shared online mode is supported through Supabase so everyone can use the same live sheet.</p>
         </div>
         <div class="header-menu-wrap">
-          <button class="menu-trigger" data-action="toggle-menu" aria-expanded="false" aria-controls="header-menu" aria-label="Open menu">⋯</button>
+          <button class="menu-trigger" data-action="toggle-menu" aria-expanded="false" aria-controls="header-menu" aria-label="Open menu">...</button>
           <div id="header-menu" class="header-menu menu-hidden">
             <div class="menu-block">
               <span class="menu-label">Account</span>
@@ -274,7 +293,7 @@
           <p class="eyebrow history-modal-eyebrow">Edit Timeline</p>
           <h2 class="history-modal-title">Weekly Edit History</h2>
         </div>
-        <button class="menu-trigger history-modal-close" data-action="close-history" aria-label="Close history">×</button>
+        <button class="menu-trigger history-modal-close" data-action="close-history" aria-label="Close history">x</button>
       </div>
       <div id="history-modal-body" class="history-modal-body">
         <p class="history-empty">No edit history yet.</p>
