@@ -7,6 +7,21 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-scene">
+      <div class="loading-orbit orbit-one"></div>
+      <div class="loading-orbit orbit-two"></div>
+      <div class="loading-orbit orbit-three"></div>
+      <div class="loading-core">
+        <span class="loading-core-text">ACE</span>
+      </div>
+    </div>
+    <div class="loading-copy">
+      <p id="loading-title" class="loading-title">Preparing Datasheet</p>
+      <p id="loading-message" class="loading-message">Connecting to the live workspace...</p>
+    </div>
+  </div>
+
   <section id="auth-shell" class="auth-shell">
     <div class="auth-card">
       <p class="eyebrow auth-eyebrow">Restricted Access</p>
@@ -32,45 +47,57 @@
   <div id="app-shell" class="page page-hidden">
     <header class="header">
       <div class="header-inner">
-        <div>
+        <div class="header-copy">
           <p class="eyebrow">Operations Sheet</p>
           <h1 class="title">ACE-IIIT Datasheet</h1>
           <p class="subtitle">Shared online mode is supported through Supabase so everyone can use the same live sheet.</p>
         </div>
-        <div class="header-actions">
-          <div class="user-panel">
-            <span id="user-email" class="user-email"></span>
-            <button class="btn-outline small" data-action="sign-out">Sign Out</button>
+        <div class="header-menu-wrap">
+          <button class="menu-trigger" data-action="toggle-menu" aria-expanded="false" aria-controls="header-menu">...</button>
+          <div id="header-menu" class="header-menu menu-hidden">
+            <div class="menu-block">
+              <span class="menu-label">Account</span>
+              <span id="user-email" class="user-email"></span>
+              <button class="btn-outline small" data-action="sign-out">Sign Out</button>
+            </div>
+            <div class="menu-block">
+              <span class="menu-label">Password</span>
+              <form id="password-form" class="password-form">
+                <input id="new-password" class="text-input password-input" type="password" autocomplete="new-password" placeholder="New password" />
+                <input id="confirm-password" class="text-input password-input" type="password" autocomplete="new-password" placeholder="Confirm password" />
+                <button type="submit" class="btn-outline small">Update Password</button>
+              </form>
+              <span id="password-message" class="menu-note">Change it anytime after login.</span>
+            </div>
+            <div class="menu-block">
+              <span class="menu-label">Last Manual Update</span>
+              <span id="audit-by" class="menu-note">Waiting for sheet data...</span>
+              <span id="audit-what" class="menu-note">Section: Not recorded yet</span>
+            </div>
+            <div class="menu-block">
+              <span class="menu-label">Edit History</span>
+              <div id="history-list" class="history-list">
+                <p class="history-empty">No edit history yet.</p>
+              </div>
+            </div>
+            <div class="menu-block">
+              <span id="sync-source" class="sync-badge sync-loading">Loading</span>
+              <span id="sync-note" class="menu-note">Checking storage mode...</span>
+              <span id="sync-meta" class="menu-note">Changes save automatically</span>
+            </div>
+            <div class="menu-actions">
+              <button class="btn-outline small" data-action="sync-now">Sync Now</button>
+              <button class="btn-outline small" data-action="export">Export CSV</button>
+              <button class="btn-outline small danger" data-action="reset">Reset</button>
+            </div>
           </div>
-          <div class="password-panel">
-            <span class="audit-title">Password</span>
-            <form id="password-form" class="password-form">
-              <input id="new-password" class="text-input password-input" type="password" autocomplete="new-password" placeholder="New password" />
-              <input id="confirm-password" class="text-input password-input" type="password" autocomplete="new-password" placeholder="Confirm password" />
-              <button type="submit" class="btn-outline small">Update Password</button>
-            </form>
-            <span id="password-message" class="password-message">Change it anytime after login.</span>
-          </div>
-          <div class="audit-panel">
-            <span class="audit-title">Last Manual Update</span>
-            <span id="audit-by" class="audit-line">Waiting for sheet data...</span>
-            <span id="audit-what" class="audit-line">Section: Not recorded yet</span>
-          </div>
-          <div class="sync-panel">
-            <span id="sync-source" class="sync-badge sync-loading">Loading</span>
-            <span id="sync-note" class="sync-note">Checking storage mode...</span>
-            <span id="sync-meta" class="sync-meta">Changes save automatically</span>
-          </div>
-          <button class="btn-outline small" data-action="sync-now">Sync Now</button>
-          <button class="btn-outline" data-action="export">Export CSV</button>
-          <button class="btn-outline danger" data-action="reset">Reset</button>
         </div>
       </div>
     </header>
 
     <section class="metric-grid" id="metric-grid"></section>
 
-    <section class="card">
+    <section class="card" data-section-card="people">
       <div class="card-header">
         <div>
           <span class="card-title">Master People Table</span>
@@ -94,7 +121,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" data-section-card="streams">
       <div class="card-header">
         <div>
           <span class="card-title">Revenue Streams</span>
@@ -111,7 +138,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" data-section-card="discounts">
       <div class="card-header">
         <div>
           <span class="card-title">Discount Reference</span>
@@ -136,7 +163,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" data-section-card="expenses">
       <div class="card-header">
         <div>
           <span class="card-title">Investments / Expenses</span>
@@ -162,7 +189,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" data-section-card="withdrawals">
       <div class="card-header">
         <div>
           <span class="card-title">Withdrawals</span>
@@ -186,7 +213,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" data-section-card="settlement">
       <div class="card-header">
         <span class="card-title">Settlement Summary</span>
         <span class="card-hint">Live view of share, spend, withdrawal, and balance by person</span>

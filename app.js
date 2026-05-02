@@ -11,10 +11,21 @@ let isAppReady = false;
 let activeUserEmail = '';
 let activeUserName = '';
 let isRecoveryMode = false;
+let pendingHighlightSection = '';
 
 const fmt = value => 'Rs ' + (Number(value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const $ = id => document.getElementById(id);
+
+function showLoader(title, message) {
+  $('loading-title').textContent = title || 'Working';
+  $('loading-message').textContent = message || 'Please wait...';
+  $('loading-overlay').classList.remove('loading-overlay-hidden');
+}
+
+function hideLoader() {
+  $('loading-overlay').classList.add('loading-overlay-hidden');
+}
 
 function getPeople() {
   return state.people;
@@ -54,7 +65,7 @@ function showApp(email) {
 function setPasswordMessage(message, isError) {
   const el = $('password-message');
   el.textContent = message;
-  el.style.color = isError ? '#ffd6d6' : 'rgba(246, 251, 253, 0.82)';
+  el.style.color = isError ? 'var(--bad)' : 'var(--muted)';
 }
 
 function setSyncStatus(mode, message) {
@@ -84,6 +95,14 @@ function formatTimestamp(value) {
 
 function updateSyncMeta() {
   $('sync-meta').textContent = lastUpdatedAt ? 'Last synced: ' + formatTimestamp(lastUpdatedAt) : 'Changes save automatically';
+}
+
+function toggleMenu(forceOpen) {
+  const menu = $('header-menu');
+  const trigger = document.querySelector('[data-action="toggle-menu"]');
+  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : menu.classList.contains('menu-hidden');
+  menu.classList.toggle('menu-hidden', !shouldOpen);
+  trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
 }
 
 function prettifyField(field) {
@@ -128,13 +147,48 @@ function updateAuditPanel() {
   $('audit-what').textContent = whatText;
 }
 
-function markManualUpdate(section, field) {
+function renderHistory() {
+  const history = Array.isArray(state.meta && state.meta.editHistory) ? state.meta.editHistory : [];
+  $('history-list').innerHTML = history.length
+    ? history.map(entry => `
+      <div class="history-item">
+        <strong>${esc(entry.by || 'Approved User')}</strong> changed <strong>${esc(prettifySection(entry.section || ''))}</strong>
+        ${entry.field ? `(${esc(prettifyField(entry.field))})` : ''}
+        ${entry.details ? `<div>${esc(entry.details)}</div>` : ''}
+        <span class="history-meta">${esc(formatTimestamp(entry.at))}</span>
+      </div>
+    `).join('')
+    : '<p class="history-empty">No edit history yet.</p>';
+}
+
+function highlightSection(section) {
+  if (!section) return;
+  const card = document.querySelector(`[data-section-card="${section}"]`);
+  if (!card) return;
+  card.classList.remove('card-highlight');
+  void card.offsetWidth;
+  card.classList.add('card-highlight');
+  setTimeout(() => card.classList.remove('card-highlight'), 3200);
+}
+
+function markManualUpdate(section, field, details) {
   state.meta = state.meta || {};
   state.meta.lastUpdatedBy = activeUserName || activeUserEmail || 'Approved User';
   state.meta.lastUpdatedEmail = activeUserEmail || '';
   state.meta.lastUpdatedSection = section || '';
   state.meta.lastUpdatedField = field || '';
   state.meta.lastUpdatedAt = new Date().toISOString();
+  state.meta.editHistory = Array.isArray(state.meta.editHistory) ? state.meta.editHistory : [];
+  state.meta.editHistory.unshift({
+    by: state.meta.lastUpdatedBy,
+    email: state.meta.lastUpdatedEmail,
+    section: section || '',
+    field: field || '',
+    details: details || '',
+    at: state.meta.lastUpdatedAt,
+  });
+  state.meta.editHistory = state.meta.editHistory.slice(0, 25);
+  pendingHighlightSection = section || '';
 }
 
 function ensureShares() {
@@ -345,6 +399,12 @@ function render() {
   renderSettlement(summary);
   updateSyncMeta();
   updateAuditPanel();
+  renderHistory();
+  if (pendingHighlightSection) {
+    const sectionToHighlight = pendingHighlightSection;
+    pendingHighlightSection = '';
+    requestAnimationFrame(() => highlightSection(sectionToHighlight));
+  }
 }
 
 function parseValue(field, value) {
@@ -360,11 +420,13 @@ function scheduleSave() {
   saveTimer = setTimeout(async () => {
     isSaving = true;
     suspendRemoteRefreshUntil = Date.now() + 15000;
+    showLoader('Saving Changes', 'Pushing your latest edits to the live datasheet...');
     const result = await dataApi.saveData(state);
     isSaving = false;
     lastUpdatedAt = result.updatedAt || lastUpdatedAt;
     setSyncStatus(result.source, result.source === 'remote' ? 'Only signed-in approved users can access this live sheet.' : 'Authenticated cloud save failed. Local fallback is active.');
     updateSyncMeta();
+    hideLoader();
   }, 350);
 }
 
@@ -372,7 +434,7 @@ function updateRecord(table, id, field, value) {
   const record = state[table].find(item => item.id === id);
   if (!record) return;
   record[field] = parseValue(field, value);
-  markManualUpdate(table, field);
+  markManualUpdate(table, field, `${prettifyField(field)} updated to ${String(value).trim() || 'blank'}`);
   render();
   scheduleSave();
 }
@@ -381,7 +443,7 @@ function updateShare(streamId, personId, value) {
   const stream = state.streams.find(item => item.id === streamId);
   if (!stream) return;
   stream.shares[personId] = Number(value) || 0;
-  markManualUpdate('streams', 'share');
+  markManualUpdate('streams', 'share', `${getPersonName(personId)} share set to ${value || 0}%`);
   render();
   scheduleSave();
 }
@@ -393,7 +455,7 @@ function deletePerson(personId) {
   state.expenses.forEach(expense => { if (expense.by === personId) expense.by = fallbackId; });
   state.withdrawals.forEach(withdrawal => { if (withdrawal.by === personId) withdrawal.by = fallbackId; });
   state.streams.forEach(stream => { delete stream.shares[personId]; });
-  markManualUpdate('people', 'name');
+  markManualUpdate('people', 'name', 'Removed a person from the master table');
   render();
   scheduleSave();
 }
@@ -405,7 +467,7 @@ function addRow(type) {
   if (type === 'discounts') state.discounts.push({ id: 'd_' + Date.now(), item: '', list: 0, discount: 0 });
   if (type === 'expenses') state.expenses.push({ id: 'e_' + Date.now(), name: '', amount: 0, by: firstPersonId, done: false, notes: '' });
   if (type === 'withdrawals') state.withdrawals.push({ id: 'w_' + Date.now(), date: new Date().toISOString().slice(0, 10), amount: 0, by: firstPersonId });
-  markManualUpdate(type, 'name');
+  markManualUpdate(type, 'name', 'Added a new row');
   render();
   scheduleSave();
 }
@@ -416,7 +478,7 @@ function deleteRow(action, id) {
   if (action === 'delete-discount') state.discounts = state.discounts.filter(item => item.id !== id);
   if (action === 'delete-expense') state.expenses = state.expenses.filter(item => item.id !== id);
   if (action === 'delete-withdrawal') state.withdrawals = state.withdrawals.filter(item => item.id !== id);
-  markManualUpdate(action.replace('delete-', ''), 'name');
+  markManualUpdate(action.replace('delete-', ''), 'name', 'Deleted a row');
   render();
   scheduleSave();
 }
@@ -448,9 +510,21 @@ document.addEventListener('click', async event => {
   if (action === 'export') exportCSV();
   else if (action === 'reset') resetAll();
   else if (action === 'sync-now') refreshFromRemote(true);
-  else if (action === 'sign-out') await authApi.signOut();
+  else if (action === 'sign-out') {
+    showLoader('Signing Out', 'Closing your protected session...');
+    await authApi.signOut();
+  }
+  else if (action === 'toggle-menu') toggleMenu();
   else if (action.startsWith('add-')) addRow(action.replace('add-', ''));
   else deleteRow(action, id);
+});
+
+document.addEventListener('click', event => {
+  const menu = $('header-menu');
+  const trigger = document.querySelector('[data-action="toggle-menu"]');
+  if (!menu || menu.classList.contains('menu-hidden')) return;
+  if (menu.contains(event.target) || trigger.contains(event.target)) return;
+  toggleMenu(false);
 });
 
 function exportCSV() {
@@ -495,28 +569,34 @@ function exportCSV() {
 async function resetAll() {
   if (!confirm('Reset all values to defaults? This clears the protected shared sheet too.')) return;
   setSyncStatus('saving', 'Resetting protected shared sheet...');
+  showLoader('Resetting Sheet', 'Restoring all values and rewriting the shared datasheet...');
   state = dataApi.normalizeData(dataApi.DEFAULT_DATA);
-  markManualUpdate('reset', 'reset');
+  markManualUpdate('reset', 'reset', 'Reset the full sheet to defaults');
   const result = await dataApi.saveData(state);
   state = result.data;
   lastUpdatedAt = result.updatedAt || null;
   setSyncStatus(result.source, result.source === 'remote' ? 'Protected shared sheet reset successfully.' : 'Reset locally. Cloud authentication or access failed.');
   render();
+  hideLoader();
 }
 
 async function refreshFromRemote(force) {
   if (!isAppReady || !dataApi.hasRemoteConfig()) return;
   if (!force && (isSaving || Date.now() < suspendRemoteRefreshUntil)) return;
   try {
+    if (force) showLoader('Refreshing Sheet', 'Checking for the latest changes from the team...');
     const result = await dataApi.loadData();
     if (result.source === 'remote' && result.updatedAt && result.updatedAt !== lastUpdatedAt) {
       state = result.data;
       lastUpdatedAt = result.updatedAt;
+      pendingHighlightSection = state.meta && state.meta.lastUpdatedSection ? state.meta.lastUpdatedSection : '';
       render();
       setSyncStatus('remote', force ? 'Protected shared data refreshed.' : 'Received latest updates from another approved user.');
     }
+    if (force) hideLoader();
   } catch (error) {
     console.error(error);
+    if (force) hideLoader();
   }
 }
 
@@ -531,9 +611,11 @@ async function bootAuthorizedApp(email) {
   activeUserName = authApi.getAllowedName(activeUserEmail) || activeUserEmail;
   showApp(activeUserEmail);
   setSyncStatus('loading', 'Loading protected datasheet...');
+  showLoader('Opening Workspace', 'Loading the protected ACE-IIIT datasheet for your account...');
   const result = await dataApi.loadData();
   state = result.data;
   lastUpdatedAt = result.updatedAt || null;
+  pendingHighlightSection = state.meta && state.meta.lastUpdatedSection ? state.meta.lastUpdatedSection : '';
   render();
   isAppReady = true;
 
@@ -546,6 +628,7 @@ async function bootAuthorizedApp(email) {
   }
 
   startPolling();
+  hideLoader();
 }
 
 async function handleAuthState(detail) {
@@ -560,6 +643,7 @@ async function handleAuthState(detail) {
     showLogin(detail && detail.reason === 'unauthorized'
       ? 'This account is not approved. Use one of the three allowed team logins.'
       : 'Sign in with an approved team account to access the datasheet.');
+    hideLoader();
     return;
   }
 
@@ -580,9 +664,11 @@ function setupLoginForm() {
     const email = $('login-email').value.trim();
     const password = $('login-password').value;
     $('auth-message').textContent = 'Signing in...';
+    showLoader('Signing In', 'Verifying your account and unlocking the protected datasheet...');
     const { error } = await authApi.signInWithPassword(email, password);
     if (error) {
       $('auth-message').textContent = error.message || 'Could not sign in.';
+      hideLoader();
     } else {
       $('auth-message').textContent = 'Sign-in successful. Loading datasheet...';
     }
@@ -592,10 +678,12 @@ function setupLoginForm() {
     event.preventDefault();
     const email = $('forgot-email').value.trim();
     $('auth-message').textContent = 'Sending reset link...';
+    showLoader('Sending Reset Link', 'Preparing a secure password reset email...');
     const { error } = await authApi.sendPasswordReset(email);
     $('auth-message').textContent = error
       ? (error.message || 'Could not send reset link.')
       : 'Reset link sent. Check that email inbox.';
+    hideLoader();
   });
 
   $('password-form').addEventListener('submit', async event => {
@@ -614,9 +702,11 @@ function setupLoginForm() {
     }
 
     setPasswordMessage('Updating password...', false);
+    showLoader('Updating Password', 'Applying your new password securely...');
     const { error } = await authApi.updatePassword(password);
     if (error) {
       setPasswordMessage(error.message || 'Could not update password.', true);
+      hideLoader();
       return;
     }
 
@@ -624,6 +714,7 @@ function setupLoginForm() {
     $('confirm-password').value = '';
     isRecoveryMode = false;
     setPasswordMessage('Password updated successfully.', false);
+    hideLoader();
   });
 }
 
@@ -634,7 +725,9 @@ window.addEventListener('auth-state-changed', event => {
 async function init() {
   setupLoginForm();
   showLogin('Checking session...');
+  showLoader('Preparing Datasheet', 'Checking your session and connecting to the protected workspace...');
   await authApi.init();
+  if ($('auth-shell').classList.contains('auth-hidden') === false) hideLoader();
 }
 
 init();

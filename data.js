@@ -14,6 +14,7 @@ const DEFAULT_DATA = {
     lastUpdatedSection: '',
     lastUpdatedField: '',
     lastUpdatedAt: '',
+    editHistory: [],
   },
   people: [
     { id: 'p1', name: 'Priyanshu' },
@@ -70,6 +71,15 @@ function normalizeData(data) {
       lastUpdatedSection: raw.meta.lastUpdatedSection || '',
       lastUpdatedField: raw.meta.lastUpdatedField || '',
       lastUpdatedAt: raw.meta.lastUpdatedAt || '',
+      editHistory: Array.isArray(raw.meta.editHistory) ? raw.meta.editHistory.slice(0, 50).map(entry => ({
+        by: entry.by || '',
+        email: entry.email || '',
+        section: entry.section || '',
+        field: entry.field || '',
+        action: entry.action || '',
+        details: entry.details || '',
+        at: entry.at || '',
+      })) : [],
     };
   }
 
