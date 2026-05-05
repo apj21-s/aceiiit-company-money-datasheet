@@ -331,7 +331,7 @@ function ensureShares() {
 
 function compute() {
   ensureShares();
-  const totals = { gross: 0, expenses: 0, distributable: 0, withdrawals: 0, shareByPerson: {}, expenseByPerson: {}, withdrawalByPerson: {}, grossShareByPerson: {} };
+  const totals = { gross: 0, expenses: 0, distributable: 0, withdrawals: 0, shareByPerson: {}, expenseByPerson: {}, withdrawalByPerson: {}, grossShareByPerson: {}, equalExpenseShare: 0 };
   getPeople().forEach(person => {
     totals.shareByPerson[person.id] = 0;
     totals.grossShareByPerson[person.id] = 0;
@@ -348,10 +348,10 @@ function compute() {
     if (expense.by in totals.expenseByPerson) totals.expenseByPerson[expense.by] += Number(expense.amount) || 0;
   });
   totals.distributable = totals.gross - totals.expenses;
+  totals.equalExpenseShare = getPeople().length ? totals.expenses / getPeople().length : 0;
   getPeople().forEach(person => {
     const grossShare = totals.grossShareByPerson[person.id] || 0;
-    const ratio = totals.gross > 0 ? grossShare / totals.gross : 0;
-    totals.shareByPerson[person.id] = totals.distributable * ratio;
+    totals.shareByPerson[person.id] = grossShare - totals.equalExpenseShare;
   });
   state.withdrawals.forEach(withdrawal => {
     totals.withdrawals += Number(withdrawal.amount) || 0;
@@ -365,6 +365,7 @@ function compute() {
       avatar: personInitials(person.name),
       colorClass: personColorClass(index),
       grossShare: totals.grossShareByPerson[person.id] || 0,
+      equalExpenseShare: totals.equalExpenseShare || 0,
       share: totals.shareByPerson[person.id] || 0,
       expense: totals.expenseByPerson[person.id] || 0,
       withdrawn: totals.withdrawalByPerson[person.id] || 0,
@@ -436,7 +437,7 @@ function renderStreams(summary) {
         <td class="row-actions"><button class="icon-btn" data-action="delete-stream" data-id="${stream.id}">Delete</button></td>
       </tr>`;
   }).join('');
-  $('stream-foot').innerHTML = `<tr><td colspan="3">Total</td><td class="num">${fmt(summary.totals.gross)}</td><td colspan="${getPeople().length + 1}"></td>${getPeople().map(person => `<td class="num">${fmt(summary.totals.shareByPerson[person.id] || 0)}</td>`).join('')}<td></td></tr>`;
+  $('stream-foot').innerHTML = `<tr><td colspan="3">Total</td><td class="num">${fmt(summary.totals.gross)}</td><td colspan="${getPeople().length + 1}"></td>${getPeople().map(person => `<td class="num">${fmt(summary.totals.grossShareByPerson[person.id] || 0)}</td>`).join('')}<td></td></tr>`;
 }
 
 function renderDiscounts() {
@@ -459,8 +460,8 @@ function renderWithdrawals(summary) {
 }
 
 function renderSettlement(summary) {
-  $('settle-body').innerHTML = summary.peopleSummary.map(person => `<tr><td><div class="person-cell"><span class="avatar av-${person.colorClass}">${esc(person.avatar)}</span>${esc(person.name)}</div></td><td class="num">${fmt(person.share)}</td><td class="num">${fmt(person.expense)}</td><td class="num">${fmt(person.withdrawn)}</td><td class="num ${person.net >= 0 ? 'bal-pos' : 'bal-neg'}">${fmt(person.net)}</td><td>${person.net > 0 ? 'Owed' : person.net < 0 ? 'Excess withdrawn' : 'Settled'}</td></tr>`).join('');
-  $('settle-foot').innerHTML = `<tr><td>Total</td><td class="num">${fmt(summary.totals.distributable)}</td><td class="num">${fmt(summary.totals.expenses)}</td><td class="num">${fmt(summary.totals.withdrawals)}</td><td class="num">${fmt(summary.totals.distributable + summary.totals.expenses - summary.totals.withdrawals)}</td><td>Final share + expenses = total revenue</td></tr>`;
+  $('settle-body').innerHTML = summary.peopleSummary.map(person => `<tr><td><div class="person-cell"><span class="avatar av-${person.colorClass}">${esc(person.avatar)}</span>${esc(person.name)}</div></td><td class="num">${fmt(person.grossShare)}</td><td class="num">${fmt(person.equalExpenseShare)}</td><td class="num">${fmt(person.share)}</td><td class="num">${fmt(person.expense)}</td><td class="num">${fmt(person.withdrawn)}</td><td class="num ${person.net >= 0 ? 'bal-pos' : 'bal-neg'}">${fmt(person.net)}</td><td>${person.net > 0 ? 'Owed' : person.net < 0 ? 'Excess withdrawn' : 'Settled'}</td></tr>`).join('');
+  $('settle-foot').innerHTML = `<tr><td>Total</td><td class="num">${fmt(summary.totals.gross)}</td><td class="num">${fmt(summary.totals.equalExpenseShare * getPeople().length)}</td><td class="num">${fmt(summary.totals.distributable)}</td><td class="num">${fmt(summary.totals.expenses)}</td><td class="num">${fmt(summary.totals.withdrawals)}</td><td class="num">${fmt(summary.totals.distributable + summary.totals.expenses - summary.totals.withdrawals)}</td><td>Gross - equal expense cut = final share</td></tr>`;
 }
 
 function render() {
