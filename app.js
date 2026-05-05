@@ -459,7 +459,8 @@ function renderWithdrawals(summary) {
 }
 
 function renderSettlement(summary) {
-  $('settle-body').innerHTML = summary.peopleSummary.map(person => `<tr><td><div class="person-cell"><span class="avatar av-${person.colorClass}">${esc(person.avatar)}</span>${esc(person.name)}</div></td><td class="num">${fmt(person.grossShare)}</td><td class="num">${fmt(person.share)}</td><td class="num">${fmt(person.expense)}</td><td class="num">${fmt(person.withdrawn)}</td><td class="num ${person.net >= 0 ? 'bal-pos' : 'bal-neg'}">${fmt(person.net)}</td><td>${person.net > 0 ? 'Owed' : person.net < 0 ? 'Excess withdrawn' : 'Settled'}</td></tr>`).join('');
+  $('settle-body').innerHTML = summary.peopleSummary.map(person => `<tr><td><div class="person-cell"><span class="avatar av-${person.colorClass}">${esc(person.avatar)}</span>${esc(person.name)}</div></td><td class="num">${fmt(person.share)}</td><td class="num">${fmt(person.expense)}</td><td class="num">${fmt(person.withdrawn)}</td><td class="num ${person.net >= 0 ? 'bal-pos' : 'bal-neg'}">${fmt(person.net)}</td><td>${person.net > 0 ? 'Owed' : person.net < 0 ? 'Excess withdrawn' : 'Settled'}</td></tr>`).join('');
+  $('settle-foot').innerHTML = `<tr><td>Total</td><td class="num">${fmt(summary.totals.distributable)}</td><td class="num">${fmt(summary.totals.expenses)}</td><td class="num">${fmt(summary.totals.withdrawals)}</td><td class="num">${fmt(summary.totals.distributable + summary.totals.expenses - summary.totals.withdrawals)}</td><td>Final share + expenses = total revenue</td></tr>`;
 }
 
 function render() {
