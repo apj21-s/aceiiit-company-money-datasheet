@@ -331,20 +331,27 @@ function ensureShares() {
 
 function compute() {
   ensureShares();
-  const totals = { gross: 0, expenses: 0, withdrawals: 0, shareByPerson: {}, expenseByPerson: {}, withdrawalByPerson: {} };
+  const totals = { gross: 0, expenses: 0, distributable: 0, withdrawals: 0, shareByPerson: {}, expenseByPerson: {}, withdrawalByPerson: {}, grossShareByPerson: {} };
   getPeople().forEach(person => {
     totals.shareByPerson[person.id] = 0;
+    totals.grossShareByPerson[person.id] = 0;
     totals.expenseByPerson[person.id] = 0;
     totals.withdrawalByPerson[person.id] = 0;
   });
   state.streams.forEach(stream => {
     const gross = (Number(stream.price) || 0) * (Number(stream.qty) || 0);
     totals.gross += gross;
-    getPeople().forEach(person => { totals.shareByPerson[person.id] += gross * ((Number(stream.shares[person.id]) || 0) / 100); });
+    getPeople().forEach(person => { totals.grossShareByPerson[person.id] += gross * ((Number(stream.shares[person.id]) || 0) / 100); });
   });
   state.expenses.forEach(expense => {
     totals.expenses += Number(expense.amount) || 0;
     if (expense.by in totals.expenseByPerson) totals.expenseByPerson[expense.by] += Number(expense.amount) || 0;
+  });
+  totals.distributable = totals.gross - totals.expenses;
+  getPeople().forEach(person => {
+    const grossShare = totals.grossShareByPerson[person.id] || 0;
+    const ratio = totals.gross > 0 ? grossShare / totals.gross : 0;
+    totals.shareByPerson[person.id] = totals.distributable * ratio;
   });
   state.withdrawals.forEach(withdrawal => {
     totals.withdrawals += Number(withdrawal.amount) || 0;
@@ -357,10 +364,11 @@ function compute() {
       name: person.name,
       avatar: personInitials(person.name),
       colorClass: personColorClass(index),
+      grossShare: totals.grossShareByPerson[person.id] || 0,
       share: totals.shareByPerson[person.id] || 0,
       expense: totals.expenseByPerson[person.id] || 0,
       withdrawn: totals.withdrawalByPerson[person.id] || 0,
-      net: (totals.shareByPerson[person.id] || 0) - (totals.withdrawalByPerson[person.id] || 0),
+      net: (totals.shareByPerson[person.id] || 0) + (totals.expenseByPerson[person.id] || 0) - (totals.withdrawalByPerson[person.id] || 0),
     })),
   };
 }
@@ -395,6 +403,7 @@ function renderPeopleTable(summary) {
   $('people-body').innerHTML = getPeople().map((person, index) => `
     <tr>
       <td><div class="person-cell"><span class="avatar av-${personColorClass(index)}">${esc(personInitials(person.name))}</span><input class="text-input" type="text" value="${esc(person.name)}" data-table="people" data-id="${person.id}" data-field="name" placeholder="Person name" /></div></td>
+      <td class="num">${fmt(summary.totals.grossShareByPerson[person.id] || 0)}</td>
       <td class="num">${fmt(summary.totals.shareByPerson[person.id] || 0)}</td>
       <td class="num">${fmt(summary.totals.expenseByPerson[person.id] || 0)}</td>
       <td class="num">${fmt(summary.totals.withdrawalByPerson[person.id] || 0)}</td>
@@ -450,7 +459,7 @@ function renderWithdrawals(summary) {
 }
 
 function renderSettlement(summary) {
-  $('settle-body').innerHTML = summary.peopleSummary.map(person => `<tr><td><div class="person-cell"><span class="avatar av-${person.colorClass}">${esc(person.avatar)}</span>${esc(person.name)}</div></td><td class="num">${fmt(person.share)}</td><td class="num">${fmt(person.expense)}</td><td class="num">${fmt(person.withdrawn)}</td><td class="num ${person.net >= 0 ? 'bal-pos' : 'bal-neg'}">${fmt(person.net)}</td><td>${person.net > 0 ? 'Owed' : person.net < 0 ? 'Excess withdrawn' : 'Settled'}</td></tr>`).join('');
+  $('settle-body').innerHTML = summary.peopleSummary.map(person => `<tr><td><div class="person-cell"><span class="avatar av-${person.colorClass}">${esc(person.avatar)}</span>${esc(person.name)}</div></td><td class="num">${fmt(person.grossShare)}</td><td class="num">${fmt(person.share)}</td><td class="num">${fmt(person.expense)}</td><td class="num">${fmt(person.withdrawn)}</td><td class="num ${person.net >= 0 ? 'bal-pos' : 'bal-neg'}">${fmt(person.net)}</td><td>${person.net > 0 ? 'Owed' : person.net < 0 ? 'Excess withdrawn' : 'Settled'}</td></tr>`).join('');
 }
 
 function render() {
@@ -742,8 +751,8 @@ function exportCSV() {
   rows.push(['YEAR', currentYear()]);
   rows.push([]);
   rows.push(['PEOPLE']);
-  rows.push(['Name', 'Revenue Share', 'Expenses', 'Withdrawals']);
-  summary.peopleSummary.forEach(person => rows.push([person.name, person.share.toFixed(2), person.expense.toFixed(2), person.withdrawn.toFixed(2)]));
+  rows.push(['Name', 'Gross Share', 'Final Share After Expenses', 'Expenses', 'Withdrawals']);
+  summary.peopleSummary.forEach(person => rows.push([person.name, person.grossShare.toFixed(2), person.share.toFixed(2), person.expense.toFixed(2), person.withdrawn.toFixed(2)]));
   rows.push([]);
   rows.push(['REVENUE STREAMS']);
   rows.push(['Stream', 'Price', 'Qty', 'Gross', ...getPeople().map(person => `${person.name} %`), ...getPeople().map(person => `${person.name} Amount`)]);
