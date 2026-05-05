@@ -369,7 +369,7 @@ function compute() {
       share: totals.shareByPerson[person.id] || 0,
       expense: totals.expenseByPerson[person.id] || 0,
       withdrawn: totals.withdrawalByPerson[person.id] || 0,
-      net: (totals.shareByPerson[person.id] || 0) + (totals.expenseByPerson[person.id] || 0) - (totals.withdrawalByPerson[person.id] || 0),
+      net: (totals.shareByPerson[person.id] || 0) - (totals.withdrawalByPerson[person.id] || 0),
     })),
   };
 }
@@ -460,8 +460,8 @@ function renderWithdrawals(summary) {
 }
 
 function renderSettlement(summary) {
-  $('settle-body').innerHTML = summary.peopleSummary.map(person => `<tr><td><div class="person-cell"><span class="avatar av-${person.colorClass}">${esc(person.avatar)}</span>${esc(person.name)}</div></td><td class="num">${fmt(person.grossShare)}</td><td class="num">${fmt(person.equalExpenseShare)}</td><td class="num">${fmt(person.share)}</td><td class="num">${fmt(person.expense)}</td><td class="num">${fmt(person.withdrawn)}</td><td class="num ${person.net >= 0 ? 'bal-pos' : 'bal-neg'}">${fmt(person.net)}</td><td>${person.net > 0 ? 'Owed' : person.net < 0 ? 'Excess withdrawn' : 'Settled'}</td></tr>`).join('');
-  $('settle-foot').innerHTML = `<tr><td>Total</td><td class="num">${fmt(summary.totals.gross)}</td><td class="num">${fmt(summary.totals.equalExpenseShare * getPeople().length)}</td><td class="num">${fmt(summary.totals.distributable)}</td><td class="num">${fmt(summary.totals.expenses)}</td><td class="num">${fmt(summary.totals.withdrawals)}</td><td class="num">${fmt(summary.totals.distributable + summary.totals.expenses - summary.totals.withdrawals)}</td><td>Gross - equal expense cut = final share</td></tr>`;
+  $('settle-body').innerHTML = summary.peopleSummary.map(person => `<tr><td><div class="person-cell"><span class="avatar av-${person.colorClass}">${esc(person.avatar)}</span>${esc(person.name)}</div></td><td class="num">${fmt(person.grossShare)}</td><td class="num">${fmt(person.equalExpenseShare)}</td><td class="num">${fmt(person.share)}</td><td class="num">${fmt(person.withdrawn)}</td><td class="num ${person.net >= 0 ? 'bal-pos' : 'bal-neg'}">${fmt(person.net)}</td><td>${person.net > 0 ? 'Owed' : person.net < 0 ? 'Excess withdrawn' : 'Settled'}</td></tr>`).join('');
+  $('settle-foot').innerHTML = `<tr><td>Total</td><td class="num">${fmt(summary.totals.gross)}</td><td class="num">${fmt(summary.totals.equalExpenseShare * getPeople().length)}</td><td class="num">${fmt(summary.totals.distributable)}</td><td class="num">${fmt(summary.totals.withdrawals)}</td><td class="num">${fmt(summary.totals.distributable - summary.totals.withdrawals)}</td><td>Net balance = final share - withdrawn</td></tr>`;
 }
 
 function render() {
